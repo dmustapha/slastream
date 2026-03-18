@@ -1,0 +1,11 @@
+# File: contracts/snfoundry.toml
+
+[snforge]
+exit_first = false
+
+[profile.default]
+network = "devnet"
+
+[profile.sepolia]
+network = "testnet"
+url = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8"

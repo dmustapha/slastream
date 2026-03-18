@@ -1,0 +1,32 @@
+{
+  "name": "slastream-relay",
+  "version": "0.1.0",
+  "description": "SLAStream relay service — FEVM monitor + Lit bridge + Starknet broadcaster",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts",
+    "deploy-lit-action": "bun run scripts/deploy-lit-action.ts",
+    "deploy-contract": "bun run scripts/deploy-contract.ts",
+    "create-deal": "bun run scripts/create-deal.ts",
+    "compute-test-sig": "bun run scripts/compute-test-sig.ts",
+    "deploy-mock-pdp": "bun run scripts/deploy-mock-pdp.ts",
+    "simulate-sp": "bun run scripts/simulate-sp-proof.ts",
+    "demo": "bun run scripts/run-full-demo.ts"
+  },
+  "dependencies": {
+    "@lit-protocol/auth": "^8.2.3",
+    "@lit-protocol/lit-client": "^8.3.1",
+    "@lit-protocol/networks": "^8.4.1",
+    "dotenv": "^16.4.5",
+    "ethers": "^5.7.2",
+    "starknet": "^7.6.4",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "solc": "^0.8.28",
+    "typescript": "^5.4.0"
+  }
+}
