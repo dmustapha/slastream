@@ -19,6 +19,8 @@ Proof-gated payment streams that release funds to Storage Providers only when cr
 
 ## Live Demo
 
+**Dashboard:** [slastream.vercel.app](https://slastream.vercel.app)
+
 **Contract:** [SLAEscrow on Starknet Sepolia](https://sepolia.starkscan.co/contract/0x020a11bf272f2af470393707aab6250bbd58c7b6d268df9756846f17ecedbfb1)
 
 Deal #5 settled 3/3 chunks on-chain. Select it in the dashboard to see real transaction hashes linked to Starkscan.
