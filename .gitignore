@@ -2,9 +2,8 @@
 node_modules/
 
 # Environment
-.env
-.env.local
-.env*.local
+.env*
+!**/.env.example
 
 # Build outputs
 contracts/target/
@@ -12,31 +11,17 @@ contracts/.snfoundry_cache/
 frontend/.next/
 frontend/out/
 
-# Tools & caches
+# Local
 .tools/
 .DS_Store
 *.pem
 *.tsbuildinfo
-
-# Relay
-relay/.env
-
-# Vercel
 .vercel
-
-# IDE
 .vscode/
 .idea/
-
-# Internal working docs
-docs/context/
-relay/docs/context/
+**/context/
 tasks/
-FOR[Dami].md
-docs/prompts/
-
-# Design iteration artifacts
+**/prompts/
 frontend/design-variations/
 frontend/.design-forge-state.json
 frontend/screenshots/
-

@@ -633,7 +633,7 @@ Day 18 (Mar 30) is a dedicated buffer. Additionally, Day 17 (Mar 29) includes su
 
 | # | Severity | Concern | How PRD Addresses It |
 |---|:---:|---------|----------------------|
-| 1 | C | Time NOT a constraint (Claude Code = 10x speed) | 17 build days allocated. Scope designed to be completable in ~12 days, leaving 5 days buffer. No scope creep — frontend is minimal and separate. |
+| 1 | C | Time NOT a constraint (tooling = 10x speed) | 17 build days allocated. Scope designed to be completable in ~12 days, leaving 5 days buffer. No scope creep. Frontend is minimal and separate. |
 | 2 | C | Uniqueness is NON-NEGOTIABLE | SLAStream is in a category that does not exist: proof-gated streaming payment for decentralized storage with automatic on-chain slash. Zero competitors found. Not a tutorial project. |
 | 3 | C | "Does this help real humans?" test | Chen (Singapore SP, $0 retrieval revenue) and Emeka (Lagos SP, losing 30-40% deals) are real archetypes from Filecoin SP community data. 1,400+ active SPs exist today who could use this on day 1. |
 | 4 | C | Cumulative corrections carry forward | All V1-V7 corrections applied. No banned ideas. No credentials/identity/voting. Ecosystem-native. Demo quality prioritized. |

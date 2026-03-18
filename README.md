@@ -1,89 +1,42 @@
-# SLAStream
+# SLAStream: Cross-Chain Streaming Payments for Filecoin SPs
 
-**Cross-chain streaming payments for Filecoin Storage Providers, enforced by cryptographic proofs on Starknet.**
+Proof-gated payment streams that release funds to Storage Providers only when cryptographic proofs confirm data is stored.
 
-## The Problem
+[![Cairo](https://img.shields.io/badge/Cairo-2.x-orange)](https://www.cairo-lang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
+[![Starknet](https://img.shields.io/badge/Starknet-Sepolia-5C4EE5)](https://starknet.io/)
+[![Tests](https://img.shields.io/badge/tests-5_passing-brightgreen)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Filecoin Storage Providers (SPs) get paid in bulk after long storage periods, creating cash flow gaps and misaligned incentives. Clients have no way to enforce SLAs or claw back funds if an SP stops proving data. There's no trustless, real-time payment stream tied to actual proof-of-storage.
-
-## How It Works
-
-```
-┌──────────────────┐     ┌───────────────────┐     ┌──────────────────┐
-│  Filecoin FEVM   │     │   Lit Protocol     │     │  Starknet        │
-│  (Calibration)   │────▶│   PKP Oracle       │────▶│  SLAEscrow       │
-│                  │     │                    │     │                  │
-│  PDP proofs      │     │  Verifies proof tx │     │  Releases chunk  │
-│  posted on-chain │     │  Signs attestation │     │  payment to SP   │
-└──────────────────┘     └───────────────────┘     └──────────────────┘
-```
-
-1. **Client** creates a deal on Starknet, locking STRK tokens in escrow (chunk payments + collateral)
-2. **Storage Provider** stores data and posts PDP (Provable Data Possession) proofs to Filecoin Calibration FEVM
-3. **Relay** monitors FEVM for `RootsAdded` events, then asks a **Lit Protocol PKP** to verify the proof tx and sign an attestation
-4. **SLAEscrow** on Starknet verifies the secp256k1 signature and releases the next chunk payment to the SP
-5. If the SLA deadline passes without enough proofs, **anyone** can slash the deal — collateral goes to the client
+<!-- TODO: Add screenshot -->
 
 ## Live Demo
 
-- **Contract:** [SLAEscrow on Starknet Sepolia](https://sepolia.starkscan.co/contract/0x020a11bf272f2af470393707aab6250bbd58c7b6d268df9756846f17ecedbfb1)
-- **Deal #5:** 3/3 chunks released and settled on-chain
+**Contract:** [SLAEscrow on Starknet Sepolia](https://sepolia.starkscan.co/contract/0x020a11bf272f2af470393707aab6250bbd58c7b6d268df9756846f17ecedbfb1)
 
-## Quick Start
+Deal #5 settled 3/3 chunks on-chain. Select it in the dashboard to see real transaction hashes linked to Starkscan.
 
-### Frontend
+---
 
-```bash
-cd frontend
-npm install
-cp .env.local.example .env.local  # or create with:
-# NEXT_PUBLIC_SLA_ESCROW_ADDRESS=0x020a11bf272f2af470393707aab6250bbd58c7b6d268df9756846f17ecedbfb1
-# NEXT_PUBLIC_STARKNET_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/demo
-npm run dev
-```
+## What Is SLAStream?
 
-### Relay
+Filecoin Storage Providers get paid in bulk after long storage periods. This creates cash flow gaps and gives clients no way to enforce SLAs or claw back funds when an SP stops proving data.
 
-```bash
-cd relay
-bun install
-cp .env.example .env  # fill in your keys
-bun run src/index.ts
-```
+SLAStream locks STRK tokens in an on-chain escrow and releases them in chunks, one per verified proof-of-storage event. If proofs stop, anyone can slash the deal and return collateral to the client.
 
-### Contracts
+---
 
-```bash
-cd contracts
-scarb build
-snforge test  # 5/5 tests passing
-```
+## Features
 
-## Architecture
+- **Proof-gated payments**: Funds release only when Filecoin PDP proofs are cryptographically verified
+- **Cross-chain oracle**: Lit Protocol PKP signs attestations after verifying FEVM proof transactions
+- **On-chain sig verification**: Cairo secp256k1 recovery confirms PKP identity before releasing funds
+- **Automatic slashing**: Anyone can slash expired deals, returning collateral to the client
+- **Real-time proof feed**: Dashboard shows live ChunkReleased events from Starknet with Starkscan links
+- **Deal management**: Create deals, browse active deals, monitor payment progress
 
-```
-slastream/
-├── contracts/          # Cairo smart contracts (SLAEscrow + MockERC20)
-│   └── src/
-│       ├── sla_escrow.cairo      # Main escrow with secp256k1 sig verification
-│       ├── interfaces/           # ISLAEscrow trait
-│       └── tests/                # 5 integration tests (snforge)
-├── relay/              # TypeScript relay service
-│   ├── src/
-│   │   ├── fevm-monitor.ts       # Polls Filecoin FEVM for PDP proof events
-│   │   ├── lit-bridge.ts         # Lit Protocol PKP signature requests
-│   │   └── starknet-relay.ts     # Broadcasts release_chunk to Starknet
-│   ├── lit-action/
-│   │   └── action.js             # Lit Action: verifies proof, signs attestation
-│   └── scripts/
-│       ├── create-deal.ts        # CLI: create a deal on Starknet
-│       └── deploy-contract.ts    # Deploy SLAEscrow via sncast
-└── frontend/           # Next.js dashboard
-    └── src/
-        ├── app/dashboard/        # Deal browser, proof feed, slash UI
-        ├── hooks/                # useDeals, useProofEvents, useTransaction
-        └── lib/                  # Starknet RPC helpers, types
-```
+---
 
 ## Tech Stack
 
@@ -95,15 +48,114 @@ slastream/
 | Frontend | Next.js 16, Tailwind CSS, starknet-react |
 | Networks | Starknet Sepolia, Filecoin Calibration FEVM |
 
-## How the Signature Verification Works
+---
 
-The SLAEscrow contract uses Cairo's native secp256k1 support to verify that chunk release requests are authentically signed by the Lit PKP oracle:
+## How It Works
 
-1. Relay constructs message: `keccak256(abi.encodePacked(dealId, chunkIndex, proofSetId, rootCID, timestamp))`
+```
+Filecoin FEVM              Lit Protocol PKP           Starknet Sepolia
+(Calibration)              (Chronicle Yellowstone)    (SLAEscrow)
+
+SP posts PDP proof  -----> Relay detects event -----> release_chunk()
+(RootsAdded event)         Lit Action verifies tx     Verifies secp256k1 sig
+                           Signs attestation          Releases chunk payment
+                                                      to SP
+
+If SLA deadline expires without enough proofs:
+Anyone calls slash() ----> Collateral returned to client
+```
+
+1. Client creates a deal on Starknet, locking STRK tokens (chunk payments + collateral)
+2. Storage Provider stores data, posts PDP proofs to Filecoin Calibration FEVM
+3. Relay monitors FEVM for `RootsAdded` events, requests Lit PKP signature
+4. Lit Action verifies the proof transaction on FEVM, signs an attestation
+5. SLAEscrow verifies the secp256k1 signature and releases the next chunk payment
+6. If the deadline passes without enough proofs, anyone can call `slash()`
+
+### Signature Verification
+
+The contract uses Cairo's native secp256k1 support:
+
+1. Relay constructs: `keccak256(abi.encodePacked(dealId, chunkIndex, proofSetId, rootCID, timestamp))`
 2. Lit Action verifies the FEVM proof tx, then signs the message with the PKP key
-3. Contract recovers the public key from the signature and compares against the stored PKP public key
-4. Only matching signatures release funds — replay protection via per-chunk release flags
+3. Contract recovers the public key and compares against the stored PKP public key
+4. Replay protection via per-chunk release flags prevents double-spending
 
-## Team
+---
 
-Built by **Dami** for the Blockchain Hack 2025 hackathon.
+## Smart Contracts
+
+| Contract | Network | Description |
+|----------|---------|-------------|
+| SLAEscrow | Starknet Sepolia | Escrow with secp256k1 sig verification, deal management, slashing |
+| MockERC20 | Starknet Sepolia (tests) | Test token for snforge integration tests |
+
+---
+
+## Running Locally
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+# Edit .env.local with your contract address and RPC URL
+npm run dev
+```
+
+### Relay
+
+```bash
+cd relay
+bun install
+cp .env.example .env
+# Edit .env with your keys (see .env.example for all required vars)
+bun run src/index.ts
+```
+
+### Contracts
+
+```bash
+cd contracts
+scarb build
+snforge test   # 5/5 passing
+```
+
+---
+
+## Project Structure
+
+```
+slastream/
+├── contracts/                # Cairo smart contracts
+│   └── src/
+│       ├── sla_escrow.cairo          # Main escrow: deals, release, slash, sig verify
+│       ├── interfaces/               # ISLAEscrow trait definition
+│       └── tests/                    # 5 integration tests (snforge)
+│           ├── test_sla_escrow.cairo # create_deal, release_chunk, slash, replay
+│           └── mock_erc20.cairo      # Test ERC20 token
+├── relay/                    # TypeScript relay service
+│   ├── src/
+│   │   ├── index.ts                  # Entry point: monitor + sign + broadcast loop
+│   │   ├── fevm-monitor.ts           # Polls Filecoin FEVM for PDP proof events
+│   │   ├── lit-bridge.ts             # Lit Protocol PKP signature requests
+│   │   ├── starknet-relay.ts         # Broadcasts release_chunk to Starknet
+│   │   └── local-signer.ts           # Local secp256k1 fallback (dev mode)
+│   ├── lit-action/
+│   │   └── action.js                 # IPFS-hosted Lit Action: verify + sign
+│   └── scripts/                      # CLI tools: create-deal, deploy, demo
+├── frontend/                 # Next.js dashboard
+│   └── src/
+│       ├── app/dashboard/            # Deal browser, proof feed, slash UI
+│       ├── components/               # DealCard, ProofFeed, CreateDealDrawer, etc.
+│       ├── hooks/                    # useDeals, useProofEvents, useTransaction
+│       └── lib/                      # Starknet RPC helpers, types, constants
+└── docs/                     # Planning docs
+```
+
+---
+
+## License
+
+MIT
