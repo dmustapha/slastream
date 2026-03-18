@@ -9,7 +9,13 @@ Proof-gated payment streams that release funds to Storage Providers only when cr
 [![Tests](https://img.shields.io/badge/tests-5_passing-brightgreen)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-<!-- TODO: Add screenshot -->
+![Landing](docs/images/landing.png)
+
+## Screenshots
+
+| Landing Page | Dashboard |
+|:---:|:---:|
+| ![Landing](docs/images/landing.png) | ![Dashboard](docs/images/dashboard.png) |
 
 ## Live Demo
 
