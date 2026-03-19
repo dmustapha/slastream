@@ -13,6 +13,7 @@ import { useDeals } from "@/hooks/useDeals";
 import { useProofEvents } from "@/hooks/useProofEvents";
 import { useWalletContext } from "@/providers/WalletProvider";
 import { useTransaction } from "@/hooks/useTransaction";
+import { CallData, cairo } from "starknet";
 import { SLA_ESCROW_ADDRESS } from "@/lib/starknet";
 import { normalizeAddress } from "@/lib/address";
 import type { Deal, DealWithId } from "@/lib/types";
@@ -474,12 +475,15 @@ export default function Dashboard() {
 
   async function handleSlash() {
     if (!deal || !account) return;
+    console.log("[SLAStream] Slashing deal:", selectedDealId);
     await execute({
       contractAddress: SLA_ESCROW_ADDRESS,
-      entrypoint: "slash_deal",
-      calldata: [selectedDealId.toString()],
+      entrypoint: "slash",
+      calldata: CallData.compile({
+        deal_id: cairo.uint256(selectedDealId),
+      }),
     });
-    if (txState === "confirmed") refetch();
+    refetch();
   }
 
   const now = Math.floor(Date.now() / 1000);
