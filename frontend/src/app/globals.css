@@ -716,6 +716,19 @@ body::after {
   border-radius: 4px;
 }
 
+/* ─── Spinner ─── */
+@keyframes sla-spin {
+  to { transform: rotate(360deg); }
+}
+.sla-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid var(--sla-border-strong);
+  border-top-color: var(--sla-accent);
+  border-radius: 50%;
+  animation: sla-spin 0.7s linear infinite;
+}
+
 /* ─── @keyframes ─── */
 @keyframes sla-ripple {
   to {
@@ -2577,4 +2590,54 @@ body::after {
 
 .sla-f3-empty-float {
   animation: sla-float 3s ease-in-out infinite;
+}
+
+/* ─── Transaction Status Card ─── */
+.sla-tx-status {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 1rem 1.25rem;
+  background: var(--sla-bg-tertiary);
+  border: 1px solid var(--sla-border);
+  border-left: 3px solid var(--sla-tx-accent, var(--sla-accent));
+  border-radius: 10px;
+}
+.sla-tx-status-success {
+  background: rgba(0, 230, 160, 0.06);
+  border-color: rgba(0, 230, 160, 0.15);
+  border-left-color: var(--sla-success);
+}
+.sla-tx-status-error {
+  background: rgba(255, 59, 92, 0.06);
+  border-color: rgba(255, 59, 92, 0.15);
+  border-left-color: var(--sla-danger);
+}
+.sla-tx-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.sla-tx-status-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--sla-text-primary);
+}
+.sla-tx-status-sub {
+  font-size: 0.7rem;
+  color: var(--sla-text-muted);
+}
+.sla-tx-retry {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--sla-accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+.sla-tx-retry:hover {
+  text-decoration: underline;
 }
