@@ -11,30 +11,52 @@ const provider = new RpcProvider({
     "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/demo",
 });
 
+const TX_TIMEOUT_MS = 120_000; // 2 minutes max wait
+
 export function useTransaction(account: AccountInterface | null) {
   const [result, setResult] = useState<TransactionResult>({ state: "idle" });
 
   const execute = useCallback(
     async (calls: Call | Call[]) => {
       if (!account) {
+        console.error("[SLAStream] execute called without account");
         setResult({ state: "failed", error: "Wallet not connected" });
         return;
       }
 
+      const callArray = Array.isArray(calls) ? calls : [calls];
+      console.log("[SLAStream] Submitting tx with", callArray.length, "calls:");
+      callArray.forEach((c, i) =>
+        console.log(`  [${i}] ${c.contractAddress} → ${c.entrypoint}`),
+      );
+
       setResult({ state: "pending" });
 
       try {
-        const tx = await account.execute(Array.isArray(calls) ? calls : [calls]);
+        console.log("[SLAStream] Calling account.execute()...");
+        const tx = await account.execute(callArray);
         const txHash = tx.transaction_hash;
+        console.log("[SLAStream] Tx submitted:", txHash);
         setResult({ state: "confirming", txHash });
 
-        await provider.waitForTransaction(txHash);
+        console.log("[SLAStream] Waiting for confirmation (timeout:", TX_TIMEOUT_MS / 1000, "s)...");
+        const waitPromise = provider.waitForTransaction(txHash);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Transaction confirmation timed out after 2 minutes")), TX_TIMEOUT_MS),
+        );
+        await Promise.race([waitPromise, timeoutPromise]);
+
+        console.log("[SLAStream] Tx confirmed:", txHash);
         setResult({ state: "confirmed", txHash });
       } catch (err: any) {
+        const raw = err?.message ?? String(err);
+        console.error("[SLAStream] Tx failed:", raw);
         const message =
-          err?.message?.includes("User abort") || err?.message?.includes("rejected")
-            ? "Transaction rejected"
-            : err?.message ?? "Transaction failed";
+          raw.includes("User abort") || raw.includes("rejected")
+            ? "Transaction rejected by wallet"
+            : raw.includes("timed out")
+              ? "Confirmation timed out — check Starkscan for tx status"
+              : raw;
         setResult({ state: "failed", error: message });
       }
     },

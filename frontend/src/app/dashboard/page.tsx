@@ -446,6 +446,21 @@ export default function Dashboard() {
         : normalizeAddress(d.sp) === normalizeAddress(account.address))
     : deals;
 
+  if (isConnected && account && deals.length > 0 && filteredDeals.length === 0) {
+    console.log("[SLAStream] Address filter mismatch:", {
+      wallet: account.address,
+      walletNorm: normalizeAddress(account.address),
+      perspective,
+      deals: deals.map(d => ({
+        id: d.dealId,
+        client: d.client,
+        clientNorm: normalizeAddress(d.client),
+        sp: d.sp,
+        spNorm: normalizeAddress(d.sp),
+      })),
+    });
+  }
+
   const showEmptyState = isConnected && filteredDeals.length === 0 && !dealsLoading;
 
   function handleSelectDeal(id: number) {

@@ -142,7 +142,23 @@ export default function CreateDealDrawer({
   async function handleCreate() {
     setStep(3);
 
+    if (!SLA_ESCROW_ADDRESS) {
+      console.error("[SLAStream] FATAL: SLA_ESCROW_ADDRESS is empty!");
+      return;
+    }
+
     const durationSecs = Math.floor(parseFloat(durationHours) * 3600);
+
+    console.log("[SLAStream] Creating deal:", {
+      escrow: SLA_ESCROW_ADDRESS,
+      strk: STRK_TOKEN_ADDRESS,
+      sp: spAddress,
+      numChunks,
+      chunkAmountWei: chunkAmountWei.toString(),
+      collateralWei: collateralWei.toString(),
+      totalWei: totalWei.toString(),
+      durationSecs,
+    });
 
     const calls = [
       {
