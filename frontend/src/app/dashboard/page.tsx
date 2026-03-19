@@ -14,6 +14,7 @@ import { useProofEvents } from "@/hooks/useProofEvents";
 import { useWalletContext } from "@/providers/WalletProvider";
 import { useTransaction } from "@/hooks/useTransaction";
 import { SLA_ESCROW_ADDRESS } from "@/lib/starknet";
+import { normalizeAddress } from "@/lib/address";
 import type { Deal, DealWithId } from "@/lib/types";
 
 function formatStrk(amount: bigint): string {
@@ -441,8 +442,8 @@ export default function Dashboard() {
 
   const filteredDeals = isConnected && account
     ? deals.filter(d => perspective === "client"
-        ? d.client.toLowerCase() === account.address.toLowerCase()
-        : d.sp.toLowerCase() === account.address.toLowerCase())
+        ? normalizeAddress(d.client) === normalizeAddress(account.address)
+        : normalizeAddress(d.sp) === normalizeAddress(account.address))
     : deals;
 
   const showEmptyState = isConnected && filteredDeals.length === 0 && !dealsLoading;

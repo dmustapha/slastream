@@ -25,15 +25,20 @@ export function useDeals(): UseDealsReturn {
         setLoading(false);
         return;
       }
-      const results = await Promise.all(
-        Array.from({ length: counter }, (_, i) =>
-          getDeal(i + 1).then((deal) => ({ ...deal, dealId: i + 1 })),
-        ),
-      );
+      const results: DealWithId[] = [];
+      for (let i = 1; i <= counter; i++) {
+        try {
+          const deal = await getDeal(i);
+          results.push({ ...deal, dealId: i });
+        } catch {
+          // Skip individual deal fetch failures
+        }
+      }
       setDeals(results);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch deals");
+      const msg = err instanceof Error ? err.message : "Failed to fetch deals";
+      setError(msg);
     } finally {
       setLoading(false);
     }

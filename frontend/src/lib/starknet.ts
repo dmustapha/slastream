@@ -6,7 +6,9 @@ import type { Deal, ChunkReleasedEvent } from "./types";
 const STARKNET_RPC_URL =
   process.env.NEXT_PUBLIC_STARKNET_RPC_URL ||
   "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/demo";
-const SLA_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_SLA_ESCROW_ADDRESS || "";
+const SLA_ESCROW_ADDRESS =
+  process.env.NEXT_PUBLIC_SLA_ESCROW_ADDRESS ||
+  "0x020a11bf272f2af470393707aab6250bbd58c7b6d268df9756846f17ecedbfb1";
 
 const provider = new RpcProvider({ nodeUrl: STARKNET_RPC_URL });
 
