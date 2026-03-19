@@ -27,8 +27,8 @@ export async function getDeal(dealId: number): Promise<Deal> {
   const result = (await contract.call("get_deal", [dealId])) as any;
 
   return {
-    client: result.client?.toString() ?? "0x0",
-    sp: result.sp?.toString() ?? "0x0",
+    client: num.toHex(result.client ?? 0),
+    sp: num.toHex(result.sp ?? 0),
     total_amount: BigInt(result.total_amount?.toString() ?? "0"),
     chunk_amount: BigInt(result.chunk_amount?.toString() ?? "0"),
     num_chunks: Number(result.num_chunks?.toString() ?? "0"),

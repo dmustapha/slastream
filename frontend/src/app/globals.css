@@ -726,7 +726,7 @@ body::after {
   border: 2.5px solid var(--sla-border-strong);
   border-top-color: var(--sla-accent);
   border-radius: 50%;
-  animation: sla-spin 0.7s linear infinite;
+  animation: sla-spin 0.7s linear infinite !important;
 }
 
 /* ─── @keyframes ─── */
