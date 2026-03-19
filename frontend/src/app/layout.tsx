@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { WalletProvider } from "@/providers/WalletProvider";
+import { ToastProvider } from "@/providers/ToastProvider";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -38,7 +39,9 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-display antialiased`}
       >
-        <WalletProvider>{children}</WalletProvider>
+        <WalletProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </WalletProvider>
       </body>
     </html>
   );

@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import WalletButton from "@/components/WalletButton";
 import CreateDealDrawer from "@/components/CreateDealDrawer";
 import TransactionStatus from "@/components/TransactionStatus";
+import PaymentProgress from "@/components/PaymentProgress";
+import ChainPipeline from "@/components/ChainPipeline";
+import ProofFeed from "@/components/ProofFeed";
 import { useDeal } from "@/hooks/useDeal";
 import { useDeals } from "@/hooks/useDeals";
 import { useProofEvents } from "@/hooks/useProofEvents";
@@ -40,13 +43,6 @@ function formatTimeRemaining(seconds: number): string {
   return `${minutes}m`;
 }
 
-function formatTimeSince(timestamp: number): string {
-  const seconds = Math.floor(Date.now() / 1000) - timestamp;
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  return `${Math.floor(seconds / 3600)}h ago`;
-}
-
 function Sidebar({
   deals,
   dealsLoading,
@@ -77,9 +73,9 @@ function Sidebar({
       <div className="sla-f3-deal-list">
         {dealsLoading ? (
           <div style={{ padding: "0.75rem" }}>
-            <div className="sla-skeleton" style={{ height: 44, marginBottom: 4 }} />
-            <div className="sla-skeleton" style={{ height: 44, marginBottom: 4 }} />
-            <div className="sla-skeleton" style={{ height: 44 }} />
+            <div className="sla-skeleton sla-shimmer" style={{ height: 44, marginBottom: 4 }} />
+            <div className="sla-skeleton sla-shimmer" style={{ height: 44, marginBottom: 4 }} />
+            <div className="sla-skeleton sla-shimmer" style={{ height: 44 }} />
           </div>
         ) : deals.length === 0 ? (
           <div
@@ -146,15 +142,29 @@ function Sidebar({
   );
 }
 
-function HeroSection({ deal, dealId }: { deal: Deal; dealId: number }) {
+function HeroSection({
+  deal,
+  dealId,
+  perspective,
+  isFiltering,
+}: {
+  deal: Deal;
+  dealId: number;
+  perspective: "client" | "sp";
+  isFiltering: boolean;
+}) {
   const badge = getStatusBadge(deal);
   const now = Math.floor(Date.now() / 1000);
   const remaining = Math.max(0, deal.sla_deadline - now);
   const totalValue = deal.total_amount + deal.collateral;
 
+  const heroLabel = isFiltering
+    ? perspective === "client" ? "Your Active Deals" : "Your Earning Streams"
+    : `Deal #${dealId}`;
+
   return (
     <div className="sla-f3-hero">
-      <div className="sla-f3-hero-label">Deal #{dealId}</div>
+      <div className="sla-f3-hero-label">{heroLabel}</div>
       <h1 className="sla-f3-hero-amount">
         {formatStrk(deal.total_amount)} STRK
       </h1>
@@ -205,7 +215,7 @@ function SLATimerCard({ deal }: { deal: Deal }) {
     : 0;
 
   return (
-    <div className="sla-f3-card sla-f3-card-utility sla-f3-grid-full">
+    <div className="sla-f3-card sla-f3-card-utility sla-f3-grid-full sla-card-lift">
       <h2 className="sla-f3-card-header">SLA Deadline</h2>
       <div className="sla-f3-timer-track">
         <div className="sla-f3-timer-fill" style={{ width: `${percent}%` }} />
@@ -235,7 +245,7 @@ function DealDetailsCard({
   const totalValue = deal.total_amount + deal.collateral;
 
   return (
-    <div className="sla-f3-card sla-f3-card-primary">
+    <div className="sla-f3-card sla-f3-card-primary sla-card-lift">
       <h2 className="sla-f3-card-header">Deal Details</h2>
       <div className="sla-f3-kv-grid">
         <div>
@@ -298,123 +308,85 @@ function DealDetailsCard({
   );
 }
 
-function PaymentProgressCard({ deal }: { deal: Deal }) {
-  const released = BigInt(deal.chunks_released) * deal.chunk_amount;
-
-  return (
-    <div className="sla-f3-card sla-f3-card-primary">
-      <h2 className="sla-f3-card-header">Payment Progress</h2>
-      <div className="sla-f3-pay-amount">{formatStrk(released)} STRK</div>
-      <div className="sla-f3-pay-total">
-        of {formatStrk(deal.total_amount)} STRK total
-      </div>
-      <div className="sla-f3-pay-chunks">
-        {deal.chunks_released} / {deal.num_chunks} chunks
-      </div>
-      <div className="sla-f3-segments">
-        {Array.from({ length: deal.num_chunks }, (_, i) => (
-          <div
-            key={i}
-            className={`sla-f3-segment ${
-              i < deal.chunks_released ? "sla-f3-segment-filled" : ""
-            }`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ChainPipelineCard() {
-  return (
-    <div className="sla-f3-card sla-f3-card-primary">
-      <h2 className="sla-f3-card-header">Chain Pipeline</h2>
-      <div className="sla-f3-pipeline">
-        <div className="sla-f3-chain-step">
-          <div
-            className="sla-f3-chain-icon"
-            style={{ background: "var(--sla-filecoin)" }}
-          >
-            F
-          </div>
-          <div className="sla-f3-chain-name">Filecoin</div>
-          <div className="sla-f3-chain-role">Storage</div>
-        </div>
-        <div className="sla-f3-chain-step">
-          <div
-            className="sla-f3-chain-icon"
-            style={{ background: "var(--sla-lit)" }}
-          >
-            L
-          </div>
-          <div className="sla-f3-chain-name">Lit Protocol</div>
-          <div className="sla-f3-chain-role">Oracle</div>
-        </div>
-        <div className="sla-f3-chain-step">
-          <div
-            className="sla-f3-chain-icon"
-            style={{ background: "var(--sla-starknet)" }}
-          >
-            S
-          </div>
-          <div className="sla-f3-chain-name">Starknet</div>
-          <div className="sla-f3-chain-role">Settlement</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProofFeedCard({
-  events,
-  eventsLoading,
-  chunkAmount,
+function PerspectiveToggle({
+  perspective,
+  onChange,
+  disabled,
 }: {
-  events: { chunk_index: number; transaction_hash: string; timestamp?: number }[];
-  eventsLoading: boolean;
-  chunkAmount: bigint;
+  perspective: "client" | "sp";
+  onChange: (p: "client" | "sp") => void;
+  disabled: boolean;
 }) {
   return (
-    <div className="sla-f3-card sla-f3-card-secondary">
-      <h2 className="sla-f3-card-header">
-        Proof Feed
-        <span className="sla-f3-live-dot">Live</span>
-      </h2>
-      <div className="sla-f3-proof-list">
-        {eventsLoading ? (
-          <>
-            <div className="sla-skeleton" style={{ height: 32, marginBottom: 8 }} />
-            <div className="sla-skeleton" style={{ height: 32, marginBottom: 8 }} />
-            <div className="sla-skeleton" style={{ height: 32 }} />
-          </>
-        ) : events.length === 0 ? (
-          <div
-            style={{
-              padding: "0.6rem 0",
-              fontSize: "0.8rem",
-              color: "var(--sla-text-muted)",
-            }}
-          >
-            No proofs yet
-          </div>
-        ) : (
-          events.slice(0, 5).map((ev) => (
-            <div key={ev.chunk_index} className="sla-f3-proof-item">
-              <span className="sla-f3-proof-check">&#10003;</span>
-              <span>Chunk #{ev.chunk_index + 1}</span>
-              <span className="sla-f3-proof-hash">
-                {truncateAddress(ev.transaction_hash)}
-              </span>
-              <span className="sla-f3-proof-reward">
-                +{formatStrk(chunkAmount)} STRK
-              </span>
-              <span className="sla-f3-proof-time">
-                {ev.timestamp ? formatTimeSince(ev.timestamp) : ""}
-              </span>
-            </div>
-          ))
-        )}
+    <div className="sla-f3-perspective-toggle" style={{ opacity: disabled ? 0.4 : 1, pointerEvents: disabled ? "none" : "auto" }}>
+      <button
+        className={`sla-f3-perspective-btn ${perspective === "client" ? "sla-f3-perspective-active" : ""}`}
+        onClick={() => onChange("client")}
+      >
+        Client
+      </button>
+      <button
+        className={`sla-f3-perspective-btn ${perspective === "sp" ? "sla-f3-perspective-active" : ""}`}
+        onClick={() => onChange("sp")}
+      >
+        SP
+      </button>
+      <div
+        className="sla-f3-perspective-slider"
+        style={{ transform: perspective === "sp" ? "translateX(100%)" : "translateX(0)" }}
+      />
+    </div>
+  );
+}
+
+function NoPerspectiveDeals({ perspective, onCreateClick }: { perspective: "client" | "sp"; onCreateClick: () => void }) {
+  return (
+    <div className="sla-f3-empty-state">
+      <div className="sla-f3-empty-float">
+        <svg className="sla-f3-empty-icon" viewBox="0 0 80 80" fill="none">
+          <rect x="8" y="16" width="64" height="48" rx="8" stroke="var(--sla-text-muted)" strokeWidth="2" strokeDasharray="4 3" />
+          <circle cx="40" cy="40" r="12" stroke="var(--sla-accent)" strokeWidth="2" opacity="0.5" />
+          <path d="M36 40h8M40 36v8" stroke="var(--sla-accent)" strokeWidth="2" strokeLinecap="round" />
+        </svg>
       </div>
+      <div className="sla-f3-empty-title">
+        {perspective === "client" ? "No deals created yet" : "No earning streams yet"}
+      </div>
+      <div className="sla-f3-empty-desc">
+        {perspective === "client"
+          ? "Create your first deal to start streaming payments to a storage provider."
+          : "Deals where you are the storage provider will appear here."}
+      </div>
+      {perspective === "client" && (
+        <button className="sla-f3-empty-cta" onClick={onCreateClick}>
+          Create Your First Deal
+        </button>
+      )}
+    </div>
+  );
+}
+
+function LastUpdated({ lastFetchedAt, error }: { lastFetchedAt: number | null; error: string | null }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (!lastFetchedAt) return null;
+
+  const secsAgo = Math.floor((now - lastFetchedAt) / 1000);
+  const statusClass = error
+    ? "sla-f3-status-indicator-error"
+    : secsAgo > 60
+      ? "sla-f3-status-indicator-stale"
+      : "";
+
+  return (
+    <div className="sla-f3-last-updated">
+      <span className={`sla-f3-status-indicator ${statusClass}`} />
+      <span>{secsAgo}s ago</span>
     </div>
   );
 }
@@ -424,12 +396,12 @@ function LoadingSkeleton() {
     <div style={{ background: "var(--sla-bg-primary)", minHeight: "100vh" }}>
       <div className="sla-f3-main">
         <div className="sla-f3-hero" style={{ padding: "2rem 1.5rem" }}>
-          <div className="sla-skeleton" style={{ height: 16, width: 80, margin: "0 auto 0.5rem" }} />
-          <div className="sla-skeleton" style={{ height: 48, width: 200, margin: "0 auto 0.5rem" }} />
-          <div className="sla-skeleton" style={{ height: 16, width: 300, margin: "0 auto 1rem" }} />
+          <div className="sla-skeleton sla-shimmer" style={{ height: 16, width: 80, margin: "0 auto 0.5rem" }} />
+          <div className="sla-skeleton sla-shimmer" style={{ height: 48, width: 200, margin: "0 auto 0.5rem" }} />
+          <div className="sla-skeleton sla-shimmer" style={{ height: 16, width: 300, margin: "0 auto 1rem" }} />
           <div style={{ display: "flex", justifyContent: "center", gap: "2rem" }}>
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="sla-skeleton" style={{ height: 36, width: 80 }} />
+              <div key={i} className="sla-skeleton sla-shimmer" style={{ height: 36, width: 80 }} />
             ))}
           </div>
         </div>
@@ -444,13 +416,36 @@ export default function Dashboard() {
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [perspective, setPerspective] = useState<"client" | "sp">("client");
 
   const { isConnected, account } = useWalletContext();
   const { deals, loading: dealsLoading, refetch } = useDeals();
   const { deal, loading, error } = useDeal(selectedDealId);
-  const { events, loading: eventsLoading } = useProofEvents(selectedDealId);
+  const { events, loading: eventsLoading, error: eventsError, lastFetchedAt } = useProofEvents(selectedDealId);
   const { state: txState, txHash, error: txError, execute, reset } =
     useTransaction(account);
+
+  const topbarRef = useRef<HTMLDivElement>(null);
+  const prevEventCountRef = useRef(events.length);
+
+  useEffect(() => {
+    if (events.length > prevEventCountRef.current && topbarRef.current) {
+      topbarRef.current.classList.add("sla-f3-topbar-flash");
+      const timer = setTimeout(() => {
+        topbarRef.current?.classList.remove("sla-f3-topbar-flash");
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+    prevEventCountRef.current = events.length;
+  }, [events.length]);
+
+  const filteredDeals = isConnected && account
+    ? deals.filter(d => perspective === "client"
+        ? d.client.toLowerCase() === account.address.toLowerCase()
+        : d.sp.toLowerCase() === account.address.toLowerCase())
+    : deals;
+
+  const showEmptyState = isConnected && filteredDeals.length === 0 && !dealsLoading;
 
   function handleSelectDeal(id: number) {
     setSelectedDealId(id);
@@ -501,7 +496,7 @@ export default function Dashboard() {
       />
 
       <Sidebar
-        deals={deals}
+        deals={filteredDeals}
         dealsLoading={dealsLoading}
         selectedDealId={selectedDealId}
         onSelectDeal={handleSelectDeal}
@@ -510,8 +505,19 @@ export default function Dashboard() {
         sidebarOpen={sidebarOpen}
       />
 
+      <div className="sla-f3-topbar" ref={topbarRef}>
+        <PerspectiveToggle
+          perspective={perspective}
+          onChange={setPerspective}
+          disabled={!isConnected}
+        />
+        <LastUpdated lastFetchedAt={lastFetchedAt} error={eventsError} />
+      </div>
+
       <main id="main-content" className="sla-f3-main">
-        {loading && !deal ? (
+        {showEmptyState ? (
+          <NoPerspectiveDeals perspective={perspective} onCreateClick={() => setDrawerOpen(true)} />
+        ) : loading && !deal ? (
           <LoadingSkeleton />
         ) : error ? (
           <div className="sla-f3-hero">
@@ -533,7 +539,12 @@ export default function Dashboard() {
           </div>
         ) : deal ? (
           <>
-            <HeroSection deal={deal} dealId={selectedDealId} />
+            <HeroSection
+              deal={deal}
+              dealId={selectedDealId}
+              perspective={perspective}
+              isFiltering={isConnected && filteredDeals.length > 0}
+            />
 
             {isConnected && (
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
@@ -555,15 +566,15 @@ export default function Dashboard() {
                 slashVisible={slashVisible}
               />
 
-              <PaymentProgressCard deal={deal} />
-
-              <ChainPipelineCard />
-
-              <ProofFeedCard
-                events={events}
-                eventsLoading={eventsLoading}
+              <PaymentProgress
+                chunksReleased={deal.chunks_released}
+                numChunks={deal.num_chunks}
                 chunkAmount={deal.chunk_amount}
               />
+
+              <ChainPipeline activeStep={deal.is_active ? 2 : deal.chunks_released > 0 ? 3 : 0} />
+
+              <ProofFeed events={events} loading={eventsLoading} />
             </div>
 
             {(txState !== "idle") && (

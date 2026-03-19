@@ -91,6 +91,49 @@ The contract uses Cairo's native secp256k1 support:
 
 ---
 
+## Trust Model & Decentralization Roadmap
+
+**Current architecture:** A single relay service monitors Filecoin FEVM events and requests Lit PKP signatures. The relay cannot steal funds or forge proofs (the PKP key is controlled by the Lit network, not the relay), but it can censor or delay proof submissions.
+
+**Why this is acceptable for v1:**
+- The escrow contract is trustless. Funds are only released with a valid PKP signature.
+- The relay is stateless. Anyone can run their own relay instance.
+- Slashing protects clients if the relay goes offline (proofs stop, deadline expires, client gets collateral back).
+
+**Path to full decentralization:**
+1. **Multi-relay with heartbeat**: Multiple relay operators register on-chain. If one fails to submit within N blocks, the next in queue takes over.
+2. **Incentivized relaying**: Relayers earn a small fee per successful chunk release, funded from the escrow.
+3. **Direct SP submission**: SPs submit their own proof attestations to Starknet, removing the relay entirely. Requires Starknet-native Filecoin light client (future infrastructure).
+
+---
+
+## Production Roadmap
+
+**Phase 1 -- Testnet (current)**
+- Starknet Sepolia + Filecoin Calibration
+- Single relay, manual deal creation
+- 5/5 integration tests passing
+
+**Phase 2 -- Mainnet Alpha**
+- Deploy SLAEscrow to Starknet mainnet
+- Multi-token support (STRK, USDC, ETH)
+- Gas optimization: batch chunk releases into single transactions
+- Rate-limited RPC with dedicated Alchemy/Infura keys
+
+**Phase 3 -- Decentralized**
+- Multi-relay network with on-chain registration
+- SP self-service portal with deal templates
+- Automated SLA monitoring with email/webhook alerts
+- Filecoin mainnet integration (real PDP proofs)
+
+**Phase 4 -- Protocol**
+- Governance token for relay operator staking
+- Cross-chain expansion (Ethereum L1, other L2s)
+- SDK for third-party integrations
+- Insurance pool for slashing protection
+
+---
+
 ## Smart Contracts
 
 | Contract | Network | Description |

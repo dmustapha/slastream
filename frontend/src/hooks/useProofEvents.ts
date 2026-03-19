@@ -8,10 +8,12 @@ export function useProofEvents(dealId: number | null): {
   events: ChunkReleasedEvent[];
   loading: boolean;
   error: string | null;
+  lastFetchedAt: number | null;
 } {
   const [events, setEvents] = useState<ChunkReleasedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -30,6 +32,7 @@ export function useProofEvents(dealId: number | null): {
           setEvents(result);
           setError(null);
           setLoading(false);
+          setLastFetchedAt(Date.now());
         }
       } catch (err) {
         if (!cancelled) {
@@ -50,5 +53,5 @@ export function useProofEvents(dealId: number | null): {
     };
   }, [dealId]);
 
-  return { events, loading, error };
+  return { events, loading, error, lastFetchedAt };
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CallData, cairo } from "starknet";
 import type { AccountInterface } from "starknet";
 import { useTransaction } from "@/hooks/useTransaction";
 import { STRK_TOKEN_ADDRESS } from "@/lib/constants";
 import { SLA_ESCROW_ADDRESS } from "@/lib/starknet";
 import TransactionStatus from "./TransactionStatus";
+import ChainPipeline from "./ChainPipeline";
 
 interface CreateDealDrawerProps {
   isOpen: boolean;
@@ -19,12 +20,54 @@ function validateHexAddress(addr: string): boolean {
   return /^0x[0-9a-fA-F]{1,64}$/.test(addr);
 }
 
+function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+  const steps = ["Parameters", "Review", "Transaction"];
+  return (
+    <div className="sla-wiz-steps">
+      {steps.map((label, i) => {
+        const n = i + 1;
+        const isActive = n === step;
+        const isComplete = n < step;
+        return (
+          <div key={label} className="sla-wiz-step-item">
+            {i > 0 && (
+              <div
+                className={`sla-wiz-step-line ${isComplete ? "sla-wiz-step-line-done" : ""}`}
+              />
+            )}
+            <div
+              className={`sla-wiz-step-dot ${isActive ? "sla-wiz-step-dot-active" : ""} ${isComplete ? "sla-wiz-step-dot-done" : ""}`}
+            >
+              {isComplete ? "\u2713" : n}
+            </div>
+            <span
+              className={`sla-wiz-step-label ${isActive || isComplete ? "sla-wiz-step-label-active" : ""}`}
+            >
+              {label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="sla-wiz-review-row">
+      <span className="sla-wiz-review-label">{label}</span>
+      <span className="sla-wiz-review-value">{value}</span>
+    </div>
+  );
+}
+
 export default function CreateDealDrawer({
   isOpen,
   onClose,
   account,
   onSuccess,
 }: CreateDealDrawerProps) {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [spAddress, setSpAddress] = useState("");
   const [numChunks, setNumChunks] = useState("");
   const [chunkAmount, setChunkAmount] = useState("");
@@ -43,6 +86,26 @@ export default function CreateDealDrawer({
   const totalWei =
     chunkAmountWei * BigInt(parseInt(numChunks || "0", 10)) + collateralWei;
   const totalStrk = Number(totalWei) / 1e18;
+
+  // Reset step when drawer closes
+  useEffect(() => {
+    if (!isOpen) {
+      const timeout = setTimeout(() => setStep(1), 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [isOpen]);
+
+  // Auto-close on confirmed
+  useEffect(() => {
+    if (state === "confirmed") {
+      const timeout = setTimeout(() => {
+        onSuccess();
+        reset();
+        onClose();
+      }, 1500);
+      return () => clearTimeout(timeout);
+    }
+  }, [state, onSuccess, reset, onClose]);
 
   function validate(): boolean {
     if (!validateHexAddress(spAddress)) {
@@ -71,9 +134,13 @@ export default function CreateDealDrawer({
     return true;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleNext() {
     if (!validate()) return;
+    setStep(2);
+  }
+
+  async function handleCreate() {
+    setStep(3);
 
     const durationSecs = Math.floor(parseFloat(durationHours) * 3600);
 
@@ -102,13 +169,9 @@ export default function CreateDealDrawer({
     await execute(calls);
   }
 
-  // Auto-close on confirmed
-  if (state === "confirmed") {
-    setTimeout(() => {
-      onSuccess();
-      reset();
-      onClose();
-    }, 1500);
+  function truncateAddress(addr: string): string {
+    if (addr.length <= 14) return addr;
+    return `${addr.slice(0, 8)}...${addr.slice(-6)}`;
   }
 
   return (
@@ -165,123 +228,173 @@ export default function CreateDealDrawer({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="sla-input-label">Storage Provider Address</label>
-            <input
-              type="text"
-              className="sla-input font-mono"
-              placeholder="0x..."
-              value={spAddress}
-              onChange={(e) => setSpAddress(e.target.value)}
-            />
-          </div>
+        <StepIndicator step={step} />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="sla-input-label">Chunks</label>
-              <input
-                type="number"
-                className="sla-input"
-                placeholder="10"
-                min="1"
-                value={numChunks}
-                onChange={(e) => setNumChunks(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="sla-input-label">Per Chunk (STRK)</label>
-              <input
-                type="number"
-                className="sla-input"
-                placeholder="0.1"
-                step="any"
-                min="0"
-                value={chunkAmount}
-                onChange={(e) => setChunkAmount(e.target.value)}
-              />
-            </div>
-          </div>
+        <div className="sla-wiz-container">
+          <div
+            className="sla-wiz-track"
+            style={{ transform: `translateX(-${(step - 1) * 100}%)` }}
+          >
+            {/* Panel 1: Parameters */}
+            <div className="sla-wiz-panel">
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="sla-input-label">
+                    Storage Provider Address
+                  </label>
+                  <div className="sla-wiz-input-wrap">
+                    <input
+                      type="text"
+                      className="sla-input font-mono"
+                      placeholder="0x..."
+                      value={spAddress}
+                      onChange={(e) => setSpAddress(e.target.value)}
+                    />
+                  </div>
+                  <p className="sla-wiz-helper">
+                    Starknet address of the storage provider
+                  </p>
+                </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="sla-input-label">Collateral (STRK)</label>
-              <input
-                type="number"
-                className="sla-input"
-                placeholder="1.0"
-                step="any"
-                min="0"
-                value={collateral}
-                onChange={(e) => setCollateral(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="sla-input-label">Duration (hours)</label>
-              <input
-                type="number"
-                className="sla-input"
-                placeholder="24"
-                step="any"
-                min="0"
-                value={durationHours}
-                onChange={(e) => setDurationHours(e.target.value)}
-              />
-            </div>
-          </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="sla-input-label">Chunks</label>
+                    <input
+                      type="number"
+                      className="sla-input"
+                      placeholder="10"
+                      min="1"
+                      value={numChunks}
+                      onChange={(e) => setNumChunks(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="sla-input-label">Per Chunk</label>
+                    <div className="sla-wiz-input-wrap">
+                      <input
+                        type="number"
+                        className="sla-input"
+                        placeholder="0.1"
+                        step="any"
+                        min="0"
+                        value={chunkAmount}
+                        onChange={(e) => setChunkAmount(e.target.value)}
+                        style={{ paddingRight: "3.5rem" }}
+                      />
+                      <span className="sla-wiz-input-suffix">STRK</span>
+                    </div>
+                  </div>
+                </div>
 
-          {/* Total display */}
-          {totalStrk > 0 && (
-            <div
-              className="rounded-lg px-3 py-2.5"
-              style={{
-                background: "var(--sla-mint-muted)",
-                border: "1px solid rgba(0,255,209,0.2)",
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <span
-                  className="text-xs"
-                  style={{ color: "var(--sla-text-secondary)" }}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="sla-input-label">Collateral</label>
+                    <div className="sla-wiz-input-wrap">
+                      <input
+                        type="number"
+                        className="sla-input"
+                        placeholder="1.0"
+                        step="any"
+                        min="0"
+                        value={collateral}
+                        onChange={(e) => setCollateral(e.target.value)}
+                        style={{ paddingRight: "3.5rem" }}
+                      />
+                      <span className="sla-wiz-input-suffix">STRK</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="sla-input-label">Duration (hours)</label>
+                    <input
+                      type="number"
+                      className="sla-input"
+                      placeholder="24"
+                      step="any"
+                      min="0"
+                      value={durationHours}
+                      onChange={(e) => setDurationHours(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {validationError && (
+                  <div
+                    className="text-xs"
+                    style={{ color: "var(--sla-danger)" }}
+                  >
+                    {validationError}
+                  </div>
+                )}
+
+                <button
+                  className="sla-btn-primary w-full justify-center"
+                  onClick={handleNext}
                 >
-                  Total required
-                </span>
-                <span
-                  className="font-mono text-sm font-bold"
-                  style={{ color: "var(--sla-mint)" }}
-                >
+                  Next: Review
+                </button>
+              </div>
+            </div>
+
+            {/* Panel 2: Review */}
+            <div className="sla-wiz-panel">
+              <div className="sla-wiz-review">
+                <ReviewRow
+                  label="SP Address"
+                  value={truncateAddress(spAddress)}
+                />
+                <ReviewRow label="Chunks" value={numChunks || "0"} />
+                <ReviewRow
+                  label="Per Chunk"
+                  value={`${chunkAmount || "0"} STRK`}
+                />
+                <ReviewRow
+                  label="Collateral"
+                  value={`${collateral || "0"} STRK`}
+                />
+                <ReviewRow
+                  label="Duration"
+                  value={`${durationHours || "0"} hours`}
+                />
+              </div>
+
+              <div className="sla-wiz-total">
+                <span className="sla-wiz-total-label">Total Required</span>
+                <span className="sla-wiz-total-value">
                   {totalStrk.toFixed(4)} STRK
                 </span>
               </div>
+
+              <div className="sla-wiz-actions">
+                <button
+                  className="sla-wiz-back"
+                  onClick={() => setStep(1)}
+                >
+                  Back
+                </button>
+                <button
+                  className="sla-btn-primary"
+                  style={{ flex: 2 }}
+                  onClick={handleCreate}
+                >
+                  Approve &amp; Create Deal
+                </button>
+              </div>
             </div>
-          )}
 
-          {validationError && (
-            <div className="text-xs" style={{ color: "var(--sla-danger)" }}>
-              {validationError}
+            {/* Panel 3: Transaction */}
+            <div className="sla-wiz-panel">
+              <div className="flex flex-col gap-4">
+                <ChainPipeline activeStep={3} />
+                <TransactionStatus
+                  state={state}
+                  txHash={txHash}
+                  error={error}
+                  onRetry={reset}
+                />
+              </div>
             </div>
-          )}
-
-          <TransactionStatus
-            state={state}
-            txHash={txHash}
-            error={error}
-            onRetry={reset}
-          />
-
-          <button
-            type="submit"
-            className="sla-btn-primary w-full justify-center"
-            disabled={state === "pending" || state === "confirming"}
-            style={{
-              opacity: state === "pending" || state === "confirming" ? 0.6 : 1,
-            }}
-          >
-            {state === "pending" || state === "confirming"
-              ? "Processing…"
-              : "Approve & Create Deal"}
-          </button>
-        </form>
+          </div>
+        </div>
       </div>
     </>
   );
