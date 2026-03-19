@@ -25,3 +25,4 @@ tasks/
 frontend/design-variations/
 frontend/.design-forge-state.json
 frontend/screenshots/
+.env*.local
