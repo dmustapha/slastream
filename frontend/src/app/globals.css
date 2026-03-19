@@ -1558,6 +1558,8 @@ body::after {
   margin-left: 260px;
   padding: 2rem;
   min-height: 100vh;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* ─── F3 Hero ─── */
