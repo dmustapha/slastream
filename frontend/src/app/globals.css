@@ -2294,7 +2294,8 @@ body::after {
 
 /* Wizard Slide Container */
 .sla-wiz-container {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
   position: relative;
 }
 
