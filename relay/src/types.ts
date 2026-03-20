@@ -58,4 +58,5 @@ export interface TrackedDeal {
   dealId: bigint;
   proofSetId: bigint;
   nextChunkIndex: bigint;
+  numChunks: bigint; // total chunks in deal — stop routing when nextChunkIndex >= numChunks
 }

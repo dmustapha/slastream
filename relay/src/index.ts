@@ -1,6 +1,7 @@
 // File: relay/src/index.ts
 
 import http from "http";
+import https from "https";
 import { validateConfig, FEVM_POLL_INTERVAL_MS, TRACKED_DEALS_CONFIG, LIT_ETH_PRIVATE_KEY } from "./config";
 import { FevmMonitor } from "./fevm-monitor";
 import { LocalSigner } from "./local-signer";
@@ -27,6 +28,7 @@ function parseTrackedDeals(configStr: string): TrackedDeal[] {
       proofSetId: BigInt(parts[0]),
       dealId: BigInt(parts[1]),
       nextChunkIndex: BigInt(parts[2]),
+      numChunks: 999n, // unknown for seeded deals — treat as unlimited
     };
   });
 }
@@ -47,7 +49,9 @@ http.createServer((_req, res) => {
 // Keep-alive: ping self every 14 minutes to prevent Render free tier spin-down
 if (process.env.RENDER_EXTERNAL_URL) {
   setInterval(() => {
-    http.get(process.env.RENDER_EXTERNAL_URL!, () => {}).on("error", () => {});
+    const url = process.env.RENDER_EXTERNAL_URL!;
+    const client = url.startsWith("https") ? https : http;
+    client.get(url, () => {}).on("error", () => {});
   }, 14 * 60 * 1000);
 }
 
@@ -70,7 +74,7 @@ async function main(): Promise<void> {
   const processedChunks = new Set<ProcessedChunkKey>();
 
   // All deals share proofSetId=1 (MockPDPVerifier)
-  const fevmMonitor = new FevmMonitor([{ proofSetId: DEFAULT_PROOF_SET_ID, dealId: 0n, nextChunkIndex: 0n }]);
+  const fevmMonitor = new FevmMonitor([{ proofSetId: DEFAULT_PROOF_SET_ID, dealId: 0n, nextChunkIndex: 0n, numChunks: 0n }]);
   const litBridge = new LocalSigner(LIT_ETH_PRIVATE_KEY);
   const starknetRelay = new StarknetRelay();
 
@@ -91,6 +95,7 @@ async function main(): Promise<void> {
             proofSetId: DEFAULT_PROOF_SET_ID,
             dealId: nd.dealId,
             nextChunkIndex: 0n,
+            numChunks: nd.numChunks,
           };
           dealMap.set(nd.dealId, tracked);
           console.log(`[relay] Auto-tracking new deal #${nd.dealId} (${nd.numChunks} chunks)`);
@@ -138,14 +143,11 @@ async function pollCycle(
 
 function findNextDealNeedingChunks(
   dealMap: Map<bigint, TrackedDeal>,
-  processedChunks: Set<ProcessedChunkKey>
+  _processedChunks: Set<ProcessedChunkKey>
 ): TrackedDeal | null {
-  // Return the deal with the lowest ID that still needs chunks
+  // Return the deal with the lowest ID that still has chunks remaining
   const candidates = Array.from(dealMap.values())
-    .filter((d) => {
-      const key: ProcessedChunkKey = `${d.dealId}-${d.nextChunkIndex}`;
-      return !processedChunks.has(key);
-    })
+    .filter((d) => d.nextChunkIndex < d.numChunks)
     .sort((a, b) => Number(a.dealId - b.dealId));
 
   return candidates[0] ?? null;
