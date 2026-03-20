@@ -44,6 +44,13 @@ http.createServer((_req, res) => {
   console.log(`[relay] Health server listening on port ${PORT}`);
 });
 
+// Keep-alive: ping self every 14 minutes to prevent Render free tier spin-down
+if (process.env.RENDER_EXTERNAL_URL) {
+  setInterval(() => {
+    http.get(process.env.RENDER_EXTERNAL_URL!, () => {}).on("error", () => {});
+  }, 14 * 60 * 1000);
+}
+
 // ---------------------------------------------------------------------------
 async function main(): Promise<void> {
   console.log("[relay] SLAStream Relay starting...");
