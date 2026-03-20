@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import WalletButton from "@/components/WalletButton";
 import CreateDealDrawer from "@/components/CreateDealDrawer";
+import SPSimulatorDrawer from "@/components/SPSimulatorDrawer";
 import TransactionStatus from "@/components/TransactionStatus";
 import PaymentProgress from "@/components/PaymentProgress";
 import ChainPipeline from "@/components/ChainPipeline";
@@ -27,11 +28,19 @@ function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
+function isExpiredUnslashed(deal: Deal): boolean {
+  if (!deal.is_active || deal.is_slashed) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return deal.sla_deadline > 0 && now > deal.sla_deadline;
+}
+
 function getStatusBadge(deal: Deal): { label: string; className: string } {
   if (deal.is_slashed)
     return { label: "Slashed", className: "sla-f3-badge-slashed" };
   if (!deal.is_active)
     return { label: "Complete", className: "sla-f3-badge-complete" };
+  if (isExpiredUnslashed(deal))
+    return { label: "Expired", className: "sla-f3-badge-expired" };
   return { label: "Active", className: "sla-f3-badge-active" };
 }
 
@@ -43,6 +52,31 @@ function formatTimeRemaining(seconds: number): string {
   if (days > 0) return `${days}d ${hours}h ${minutes}m`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+function formatDeadlineDate(unixTs: number): string {
+  if (!unixTs) return "Unknown";
+  const d = new Date(unixTs * 1000);
+  return d.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatDeadlineLabel(unixTs: number): string {
+  const now = Math.floor(Date.now() / 1000);
+  const remaining = unixTs - now;
+  const date = formatDeadlineDate(unixTs);
+  if (remaining > 0) return `${formatTimeRemaining(remaining)} · ${date}`;
+  const ago = Math.abs(remaining);
+  const days = Math.floor(ago / 86400);
+  const hours = Math.floor((ago % 86400) / 3600);
+  const agoStr = days > 0 ? `${days}d ago` : hours > 0 ? `${hours}h ago` : "just now";
+  return `Expired ${agoStr} · ${date}`;
 }
 
 function Sidebar({
@@ -62,6 +96,12 @@ function Sidebar({
   onCreateClick: () => void;
   sidebarOpen: boolean;
 }) {
+  const [dealFilter, setDealFilter] = useState<"active" | "history">("active");
+
+  const activeDeals = deals.filter(d => d.is_active && !d.is_slashed && !isExpiredUnslashed(d));
+  const historyDeals = deals.filter(d => !d.is_active || d.is_slashed || isExpiredUnslashed(d));
+  const visibleDeals = dealFilter === "active" ? activeDeals : historyDeals;
+
   return (
     <aside
       className={`sla-f3-sidebar ${sidebarOpen ? "sla-f3-sidebar-open" : ""}`}
@@ -71,7 +111,45 @@ function Sidebar({
       </div>
       <div className="sla-f3-divider" />
 
-      <div className="sla-f3-section-label">Deals</div>
+      {/* Active / History toggle */}
+      <div style={{ display: "flex", gap: "0.25rem", padding: "0 0.75rem 0.5rem" }}>
+        {(["active", "history"] as const).map((tab) => {
+          const count = tab === "active" ? activeDeals.length : historyDeals.length;
+          return (
+            <button
+              key={tab}
+              onClick={() => setDealFilter(tab)}
+              style={{
+                flex: 1,
+                padding: "0.3rem 0",
+                borderRadius: "var(--radius-md, 6px)",
+                fontSize: "0.72rem",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                cursor: "pointer",
+                border: "1px solid",
+                transition: "all 0.15s",
+                borderColor: dealFilter === tab ? "var(--sla-accent)" : "var(--sla-border-subtle)",
+                background: dealFilter === tab ? "rgba(0,230,160,0.1)" : "transparent",
+                color: dealFilter === tab ? "var(--sla-accent)" : "var(--sla-text-muted)",
+              }}
+            >
+              {tab === "active" ? "Active" : "History"}
+              {count > 0 && (
+                <span style={{
+                  marginLeft: "0.3rem",
+                  fontSize: "0.65rem",
+                  opacity: 0.7,
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="sla-f3-deal-list">
         {dealsLoading ? (
           <div style={{ padding: "0.75rem" }}>
@@ -79,7 +157,7 @@ function Sidebar({
             <div className="sla-skeleton sla-shimmer" style={{ height: 44, marginBottom: 4 }} />
             <div className="sla-skeleton sla-shimmer" style={{ height: 44 }} />
           </div>
-        ) : deals.length === 0 ? (
+        ) : visibleDeals.length === 0 ? (
           <div
             style={{
               padding: "1rem 0.75rem",
@@ -87,10 +165,10 @@ function Sidebar({
               color: "var(--sla-text-muted)",
             }}
           >
-            No deals found
+            {dealFilter === "active" ? "No active deals" : "No completed deals"}
           </div>
         ) : (
-          deals.map((d) => {
+          visibleDeals.map((d) => {
             const badge = getStatusBadge(d);
             return (
               <button
@@ -177,7 +255,7 @@ function HeroSection({
           SP: {truncateAddress(deal.sp)}
         </span>
         <span className="sla-f3-hero-sep">&middot;</span>
-        <span>{formatTimeRemaining(remaining)} remaining</span>
+        <span>{remaining > 0 ? `${formatTimeRemaining(remaining)} remaining` : "Expired"}</span>
       </div>
       <div className="sla-f3-hero-stats">
         <div>
@@ -194,8 +272,8 @@ function HeroSection({
         </div>
         <div>
           <div className="sla-f3-hero-stat-label">Deadline</div>
-          <div className="sla-f3-hero-stat-value">
-            {formatTimeRemaining(remaining)}
+          <div className="sla-f3-hero-stat-value" style={{ fontSize: "0.75rem" }}>
+            {formatDeadlineDate(deal.sla_deadline)}
           </div>
         </div>
         <div>
@@ -212,20 +290,40 @@ function HeroSection({
 function SLATimerCard({ deal }: { deal: Deal }) {
   const now = Math.floor(Date.now() / 1000);
   const remaining = Math.max(0, deal.sla_deadline - now);
-  const percent = deal.num_chunks > 0
+  const isExpired = deal.sla_deadline > 0 && now >= deal.sla_deadline;
+
+  // Chunk completion progress
+  const chunkPercent = deal.num_chunks > 0
     ? Math.min(100, Math.round((deal.chunks_released / deal.num_chunks) * 100))
     : 0;
 
   return (
     <div className="sla-f3-card sla-f3-card-utility sla-f3-grid-full sla-card-lift">
       <h2 className="sla-f3-card-header">SLA Deadline</h2>
+      <div style={{ marginBottom: "0.5rem" }}>
+        <div style={{
+          fontSize: "0.9rem",
+          fontWeight: 600,
+          color: isExpired ? "var(--sla-danger)" : "var(--sla-text-primary)",
+        }}>
+          {isExpired ? `Expired` : formatTimeRemaining(remaining)}
+        </div>
+        <div style={{
+          fontSize: "0.75rem",
+          color: "var(--sla-text-muted)",
+          fontFamily: "var(--font-jetbrains-mono), monospace",
+          marginTop: "0.15rem",
+        }}>
+          {formatDeadlineDate(deal.sla_deadline)}
+        </div>
+      </div>
       <div className="sla-f3-timer-track">
-        <div className="sla-f3-timer-fill" style={{ width: `${percent}%` }} />
+        <div className="sla-f3-timer-fill" style={{ width: `${chunkPercent}%` }} />
       </div>
       <div className="sla-f3-timer-labels">
-        <span>{formatTimeRemaining(remaining)} remaining</span>
+        <span>Chunks released</span>
         <span style={{ fontFamily: "var(--font-jetbrains-mono), monospace" }}>
-          {percent}%
+          {deal.chunks_released} / {deal.num_chunks} ({chunkPercent}%)
         </span>
       </div>
     </div>
@@ -241,8 +339,6 @@ function DealDetailsCard({
   onSlash: () => void;
   slashVisible: boolean;
 }) {
-  const now = Math.floor(Date.now() / 1000);
-  const remaining = Math.max(0, deal.sla_deadline - now);
   const badge = getStatusBadge(deal);
   const totalValue = deal.total_amount + deal.collateral;
 
@@ -288,8 +384,8 @@ function DealDetailsCard({
         </div>
         <div>
           <div className="sla-f3-kv-label">Deadline</div>
-          <div className="sla-f3-kv-value sla-f3-kv-value-mono">
-            {formatTimeRemaining(remaining)}
+          <div className="sla-f3-kv-value sla-f3-kv-value-mono" style={{ fontSize: "0.8rem" }}>
+            {formatDeadlineLabel(deal.sla_deadline)}
           </div>
         </div>
         <div>
@@ -301,6 +397,22 @@ function DealDetailsCard({
           </div>
         </div>
       </div>
+      {isExpiredUnslashed(deal) && (
+        <div style={{
+          marginTop: "0.75rem",
+          padding: "0.65rem 0.85rem",
+          borderRadius: "6px",
+          background: "rgba(255,80,80,0.08)",
+          border: "1px solid rgba(255,80,80,0.25)",
+          fontSize: "0.78rem",
+          color: "var(--sla-danger)",
+          lineHeight: 1.5,
+        }}>
+          <strong>SLA deadline passed.</strong> The storage provider released{" "}
+          {deal.chunks_released}/{deal.num_chunks} chunks.
+          {slashVisible && " Slash to confiscate their collateral."}
+        </div>
+      )}
       {slashVisible && (
         <button className="sla-f3-slash-btn" onClick={onSlash}>
           Slash Deal
@@ -418,12 +530,14 @@ export default function Dashboard() {
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [spSimulatorOpen, setSpSimulatorOpen] = useState(false);
+  const [pendingFilecoinTxHash, setPendingFilecoinTxHash] = useState<string | null>(null);
   const [perspective, setPerspective] = useState<"client" | "sp">("client");
 
   const { isConnected, account } = useWalletContext();
   const { deals, loading: dealsLoading, refetch } = useDeals();
   const { deal, loading, error } = useDeal(selectedDealId);
-  const { events, loading: eventsLoading, error: eventsError, lastFetchedAt } = useProofEvents(selectedDealId);
+  const { events, loading: eventsLoading, error: eventsError, lastFetchedAt } = useProofEvents(null);
   const { state: txState, txHash, error: txError, execute, reset } =
     useTransaction(account);
 
@@ -567,7 +681,13 @@ export default function Dashboard() {
             />
 
             {isConnected && (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginBottom: "1rem" }}>
+                <button
+                  className="sla-sp-trigger-btn"
+                  onClick={() => setSpSimulatorOpen(true)}
+                >
+                  Submit SP Proof
+                </button>
                 <button
                   className="sla-f3-create-cta"
                   onClick={() => setDrawerOpen(true)}
@@ -592,7 +712,10 @@ export default function Dashboard() {
                 chunkAmount={deal.chunk_amount}
               />
 
-              <ChainPipeline activeStep={deal.is_active ? 2 : deal.chunks_released > 0 ? 3 : 0} />
+              <ChainPipeline
+                activeStep={deal.is_active ? 2 : deal.chunks_released > 0 ? 3 : 0}
+                filecoinTxHash={pendingFilecoinTxHash}
+              />
 
               <ProofFeed events={events} loading={eventsLoading} />
             </div>
@@ -616,6 +739,14 @@ export default function Dashboard() {
         onClose={() => setDrawerOpen(false)}
         account={account}
         onSuccess={refetch}
+      />
+
+      <SPSimulatorDrawer
+        isOpen={spSimulatorOpen}
+        onClose={() => setSpSimulatorOpen(false)}
+        onTxHash={(hash) => {
+          setPendingFilecoinTxHash(hash);
+        }}
       />
     </div>
   );

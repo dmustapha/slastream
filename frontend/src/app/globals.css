@@ -1428,6 +1428,11 @@ body::after {
   color: var(--sla-danger);
 }
 
+.sla-f3-badge-expired {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
 .sla-f3-deal-amount {
   font-family: var(--font-jetbrains-mono), monospace;
   font-size: 0.75rem;
@@ -2640,4 +2645,86 @@ body::after {
 }
 .sla-tx-retry:hover {
   text-decoration: underline;
+}
+
+/* ─── SP Simulator Drawer ─── */
+.sla-sp-connect-btn {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: linear-gradient(135deg, #f6821f 0%, #ff6b00 100%);
+  color: #fff;
+  transition: opacity 0.15s;
+}
+.sla-sp-connect-btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+.sla-sp-connect-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sla-sp-chain-badge {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid;
+}
+.sla-sp-roots-textarea {
+  width: 100%;
+  background: var(--sla-bg-tertiary);
+  border: 1px solid var(--sla-border);
+  border-radius: 8px;
+  color: var(--sla-text-primary);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.72rem;
+  padding: 0.6rem 0.75rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+  line-height: 1.6;
+}
+.sla-sp-roots-textarea:focus {
+  border-color: var(--sla-accent-border);
+}
+.sla-sp-tx-link {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.72rem;
+  color: var(--sla-filecoin);
+  text-decoration: none;
+  word-break: break-all;
+}
+.sla-sp-tx-link:hover {
+  text-decoration: underline;
+}
+.sla-sp-relay-note {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(0, 144, 255, 0.07);
+  border: 1px solid rgba(0, 144, 255, 0.2);
+  color: var(--sla-text-secondary);
+}
+.sla-sp-trigger-btn {
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--sla-border-strong);
+  color: var(--sla-text-primary);
+  transition: all 0.15s;
+}
+.sla-sp-trigger-btn:hover {
+  border-color: var(--sla-filecoin);
+  color: var(--sla-filecoin);
+  background: rgba(0, 144, 255, 0.07);
 }

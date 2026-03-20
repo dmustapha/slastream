@@ -1,5 +1,6 @@
 interface ChainPipelineProps {
   activeStep: number;
+  filecoinTxHash?: string | null;
 }
 
 const steps = [
@@ -78,7 +79,7 @@ function CheckmarkBadge() {
   );
 }
 
-export default function ChainPipeline({ activeStep }: ChainPipelineProps) {
+export default function ChainPipeline({ activeStep, filecoinTxHash }: ChainPipelineProps) {
   return (
     <div className="sla-card" style={{ padding: "1.25rem 1.5rem" }}>
       <h2
@@ -90,10 +91,11 @@ export default function ChainPipeline({ activeStep }: ChainPipelineProps) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
         {steps.map((step, i) => {
-          const isActive = i < activeStep;
-          const isCurrent = i === activeStep - 1;
+          const hasFilecoinTx = i === 0 && !!filecoinTxHash;
+          const isActive = i < activeStep || hasFilecoinTx;
+          const isCurrent = i === activeStep - 1 || (i === 0 && hasFilecoinTx && activeStep === 0);
           const isCompleted = i < activeStep - 1;
-          const isFuture = i >= activeStep;
+          const isFuture = i >= activeStep && !hasFilecoinTx;
           const segmentActive = i < activeStep - 1;
 
           return (
@@ -172,6 +174,35 @@ export default function ChainPipeline({ activeStep }: ChainPipelineProps) {
                   <span className="sla-pill sla-pill-warning">Pending</span>
                 )}
               </div>
+
+              {/* Filecoin tx hash pill */}
+              {i === 0 && filecoinTxHash && (
+                <div style={{ paddingLeft: "48px", paddingBottom: "4px" }}>
+                  <a
+                    className="sla-sp-tx-link"
+                    href={`https://calibration.filfox.info/en/tx/${filecoinTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {filecoinTxHash.slice(0, 14)}…{filecoinTxHash.slice(-6)}
+                    <svg
+                      width="9"
+                      height="9"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ marginLeft: "0.25rem" }}
+                    >
+                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </a>
+                </div>
+              )}
 
               {/* Connector line between steps */}
               {i < steps.length - 1 && (
