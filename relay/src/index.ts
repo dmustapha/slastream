@@ -1,5 +1,6 @@
 // File: relay/src/index.ts
 
+import http from "http";
 import { validateConfig, FEVM_POLL_INTERVAL_MS, TRACKED_DEALS_CONFIG, LIT_ETH_PRIVATE_KEY } from "./config";
 import { FevmMonitor } from "./fevm-monitor";
 import { LocalSigner } from "./local-signer";
@@ -32,6 +33,17 @@ function parseTrackedDeals(configStr: string): TrackedDeal[] {
 
 // ---------------------------------------------------------------------------
 // Main relay loop
+// ---------------------------------------------------------------------------
+// Health check server (required for Render web service hosting)
+// ---------------------------------------------------------------------------
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+http.createServer((_req, res) => {
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ status: "ok", service: "slastream-relay" }));
+}).listen(PORT, () => {
+  console.log(`[relay] Health server listening on port ${PORT}`);
+});
+
 // ---------------------------------------------------------------------------
 async function main(): Promise<void> {
   console.log("[relay] SLAStream Relay starting...");
