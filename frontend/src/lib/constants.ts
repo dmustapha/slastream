@@ -13,7 +13,7 @@ export const FILECOIN_CALIBRATION_RPC =
   "https://api.calibration.node.glif.io/rpc/v1";
 export const PDP_VERIFIER_ADDRESS =
   process.env.NEXT_PUBLIC_PDP_VERIFIER_ADDRESS ||
-  "0x7e5e5f5D80d73a1Cc9E960A3cB3f9b35fdE49e25";
+  "0xf2943580DABc1dd5eD417a5DC58D35110640BB2f";
 
 export const ADD_ROOTS_ABI = [
   "function addRoots(uint256 proofSetId, bytes32[] calldata rootCIDs) external",

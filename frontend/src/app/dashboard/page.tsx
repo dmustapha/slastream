@@ -86,7 +86,9 @@ function Sidebar({
   onSelectDeal,
   walletConnected,
   onCreateClick,
+  onSubmitProofClick,
   sidebarOpen,
+  perspective,
 }: {
   deals: DealWithId[];
   dealsLoading: boolean;
@@ -94,7 +96,9 @@ function Sidebar({
   onSelectDeal: (id: number) => void;
   walletConnected: boolean;
   onCreateClick: () => void;
+  onSubmitProofClick: () => void;
   sidebarOpen: boolean;
+  perspective: "client" | "sp";
 }) {
   const [dealFilter, setDealFilter] = useState<"active" | "history">("active");
 
@@ -195,9 +199,15 @@ function Sidebar({
         )}
       </div>
 
-      {walletConnected && (
+      {walletConnected && perspective === "client" && (
         <button className="sla-f3-create-deal" onClick={onCreateClick}>
           + Create Deal
+        </button>
+      )}
+      {walletConnected && perspective === "sp" && (
+        <button className="sla-f3-create-deal" onClick={onSubmitProofClick}
+          style={{ background: "rgba(255,165,0,0.1)", borderColor: "rgba(255,165,0,0.3)", color: "#f5a623" }}>
+          Submit SP Proof
         </button>
       )}
 
@@ -636,7 +646,9 @@ export default function Dashboard() {
         onSelectDeal={handleSelectDeal}
         walletConnected={isConnected}
         onCreateClick={() => setDrawerOpen(true)}
+        onSubmitProofClick={() => setSpSimulatorOpen(true)}
         sidebarOpen={sidebarOpen}
+        perspective={perspective}
       />
 
       <div className="sla-f3-topbar" ref={topbarRef}>
@@ -682,18 +694,22 @@ export default function Dashboard() {
 
             {isConnected && (
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginBottom: "1rem" }}>
-                <button
-                  className="sla-sp-trigger-btn"
-                  onClick={() => setSpSimulatorOpen(true)}
-                >
-                  Submit SP Proof
-                </button>
-                <button
-                  className="sla-f3-create-cta"
-                  onClick={() => setDrawerOpen(true)}
-                >
-                  + Create New Deal
-                </button>
+                {perspective === "sp" && (
+                  <button
+                    className="sla-sp-trigger-btn"
+                    onClick={() => setSpSimulatorOpen(true)}
+                  >
+                    Submit SP Proof
+                  </button>
+                )}
+                {perspective === "client" && (
+                  <button
+                    className="sla-f3-create-cta"
+                    onClick={() => setDrawerOpen(true)}
+                  >
+                    + Create New Deal
+                  </button>
+                )}
               </div>
             )}
 
