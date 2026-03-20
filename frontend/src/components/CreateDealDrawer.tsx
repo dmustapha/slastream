@@ -69,7 +69,7 @@ export default function CreateDealDrawer({
 }: CreateDealDrawerProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [spAddress, setSpAddress] = useState("");
-  const [numChunks, setNumChunks] = useState("");
+  const numChunks = "2"; // Default: 2 proof checkpoints per deal
   const [chunkAmount, setChunkAmount] = useState("");
   const [collateral, setCollateral] = useState("");
   const [durationHours, setDurationHours] = useState("");
@@ -110,11 +110,6 @@ export default function CreateDealDrawer({
   function validate(): boolean {
     if (!validateHexAddress(spAddress)) {
       setValidationError("Invalid SP address (must be 0x + hex)");
-      return false;
-    }
-    const chunks = parseInt(numChunks, 10);
-    if (!chunks || chunks <= 0) {
-      setValidationError("Number of chunks must be positive");
       return false;
     }
     if (!parseFloat(chunkAmount) || parseFloat(chunkAmount) <= 0) {
@@ -256,7 +251,7 @@ export default function CreateDealDrawer({
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="sla-input-label">
-                    Storage Provider Address
+                    Provider
                   </label>
                   <div className="sla-wiz-input-wrap">
                     <input
@@ -268,38 +263,28 @@ export default function CreateDealDrawer({
                     />
                   </div>
                   <p className="sla-wiz-helper">
-                    Starknet address of the storage provider
+                    Paste the SP's Starknet address
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="sla-input-label">Chunks</label>
+                <div>
+                  <label className="sla-input-label">Payment per proof</label>
+                  <div className="sla-wiz-input-wrap">
                     <input
                       type="number"
                       className="sla-input"
-                      placeholder="10"
-                      min="1"
-                      value={numChunks}
-                      onChange={(e) => setNumChunks(e.target.value)}
+                      placeholder="0.1"
+                      step="any"
+                      min="0"
+                      value={chunkAmount}
+                      onChange={(e) => setChunkAmount(e.target.value)}
+                      style={{ paddingRight: "3.5rem" }}
                     />
+                    <span className="sla-wiz-input-suffix">STRK</span>
                   </div>
-                  <div>
-                    <label className="sla-input-label">Per Chunk</label>
-                    <div className="sla-wiz-input-wrap">
-                      <input
-                        type="number"
-                        className="sla-input"
-                        placeholder="0.1"
-                        step="any"
-                        min="0"
-                        value={chunkAmount}
-                        onChange={(e) => setChunkAmount(e.target.value)}
-                        style={{ paddingRight: "3.5rem" }}
-                      />
-                      <span className="sla-wiz-input-suffix">STRK</span>
-                    </div>
-                  </div>
+                  <p className="sla-wiz-helper">
+                    Amount released to the SP for each verified proof
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -318,9 +303,12 @@ export default function CreateDealDrawer({
                       />
                       <span className="sla-wiz-input-suffix">STRK</span>
                     </div>
+                    <p className="sla-wiz-helper">
+                      SP forfeits this if they miss the deadline
+                    </p>
                   </div>
                   <div>
-                    <label className="sla-input-label">Duration (hours)</label>
+                    <label className="sla-input-label">Storage period</label>
                     <input
                       type="number"
                       className="sla-input"
@@ -330,6 +318,9 @@ export default function CreateDealDrawer({
                       value={durationHours}
                       onChange={(e) => setDurationHours(e.target.value)}
                     />
+                    <p className="sla-wiz-helper">
+                      Hours the SP must store your data
+                    </p>
                   </div>
                 </div>
 
@@ -353,14 +344,44 @@ export default function CreateDealDrawer({
 
             {/* Panel 2: Review */}
             <div className="sla-wiz-panel">
+              <div
+                style={{
+                  fontSize: "0.82rem",
+                  lineHeight: 1.7,
+                  color: "var(--sla-text-secondary)",
+                  padding: "0.75rem",
+                  borderRadius: "8px",
+                  background: "var(--sla-bg-tertiary)",
+                  border: "1px solid var(--sla-border-subtle)",
+                  marginBottom: "1rem",
+                }}
+              >
+                You're paying{" "}
+                <strong style={{ color: "var(--sla-text-primary)" }}>
+                  {(parseFloat(chunkAmount || "0") * parseInt(numChunks || "0", 10)).toFixed(2)} STRK
+                </strong>{" "}
+                for {numChunks} storage proofs over{" "}
+                <strong style={{ color: "var(--sla-text-primary)" }}>
+                  {durationHours || "0"} hours
+                </strong>
+                . The SP stakes{" "}
+                <strong style={{ color: "var(--sla-text-primary)" }}>
+                  {collateral || "0"} STRK
+                </strong>{" "}
+                as collateral.
+              </div>
+
               <div className="sla-wiz-review">
                 <ReviewRow
-                  label="SP Address"
+                  label="Provider"
                   value={truncateAddress(spAddress)}
                 />
-                <ReviewRow label="Chunks" value={numChunks || "0"} />
                 <ReviewRow
-                  label="Per Chunk"
+                  label="Proof checkpoints"
+                  value={numChunks}
+                />
+                <ReviewRow
+                  label="Payment per proof"
                   value={`${chunkAmount || "0"} STRK`}
                 />
                 <ReviewRow
@@ -368,7 +389,7 @@ export default function CreateDealDrawer({
                   value={`${collateral || "0"} STRK`}
                 />
                 <ReviewRow
-                  label="Duration"
+                  label="Storage period"
                   value={`${durationHours || "0"} hours`}
                 />
               </div>

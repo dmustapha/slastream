@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "bun run src/index.ts",
+    "start": "node dist/src/index.js",
     "dev": "bun --watch run src/index.ts",
     "deploy-lit-action": "bun run scripts/deploy-lit-action.ts",
     "deploy-contract": "bun run scripts/deploy-contract.ts",

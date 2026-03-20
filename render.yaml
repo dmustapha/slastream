@@ -1,0 +1,38 @@
+services:
+  - type: worker
+    name: slastream-relay
+    runtime: node
+    rootDir: relay
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SLA_ESCROW_ADDRESS
+        sync: false
+      - key: RELAY_STARKNET_PRIVATE_KEY
+        sync: false
+      - key: RELAY_STARKNET_ACCOUNT_ADDRESS
+        sync: false
+      - key: STARKNET_RPC_URL
+        sync: false
+      - key: STARKNET_RPC_URL_BACKUP
+        sync: false
+      - key: PDP_VERIFIER_ADDRESS
+        sync: false
+      - key: FEVM_RPC_URL
+        sync: false
+      - key: FEVM_RPC_URL_BACKUP
+        sync: false
+      - key: FEVM_POLL_INTERVAL_MS
+        sync: false
+      - key: FEVM_LOOKBACK_BLOCKS
+        sync: false
+      - key: LIT_DEPLOYER_PRIVATE_KEY
+        sync: false
+      - key: PKP_PUBLIC_KEY_X
+        sync: false
+      - key: PKP_PUBLIC_KEY_Y
+        sync: false
+      - key: TRACKED_DEALS_CONFIG
+        value: ""

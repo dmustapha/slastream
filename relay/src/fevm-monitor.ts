@@ -19,9 +19,7 @@ export class FevmMonitor {
   private provider: ethers.providers.JsonRpcProvider;
   private pdpVerifier: ethers.Contract;
   private lastBlock: number;
-  private trackedProofSetIds: Set<bigint>;
-
-  constructor(trackedDeals: TrackedDeal[]) {
+  constructor(_trackedDeals: TrackedDeal[]) {
     this.provider = new ethers.providers.JsonRpcProvider(FEVM_RPC_URL);
     this.pdpVerifier = new ethers.Contract(
       PDP_VERIFIER_ADDRESS,
@@ -29,7 +27,6 @@ export class FevmMonitor {
       this.provider
     );
     this.lastBlock = 0;
-    this.trackedProofSetIds = new Set(trackedDeals.map((d) => d.proofSetId));
   }
 
   async initialize(): Promise<void> {
@@ -89,9 +86,6 @@ export class FevmMonitor {
     const results: ProofEvent[] = [];
     for (const event of rawEvents) {
       const proofSetId = BigInt(event.args![0].toString());
-      if (!this.trackedProofSetIds.has(proofSetId)) {
-        continue;
-      }
 
       const rawCIDs: string[] = event.args![1];
       const rootCIDs = rawCIDs.map((cid) =>
@@ -114,11 +108,6 @@ export class FevmMonitor {
     }
 
     return results;
-  }
-
-  addTrackedProofSet(proofSetId: bigint): void {
-    this.trackedProofSetIds.add(proofSetId);
-    console.log(`[fevm-monitor] Now tracking proofSetId: ${proofSetId}`);
   }
 
   getLastBlock(): number {

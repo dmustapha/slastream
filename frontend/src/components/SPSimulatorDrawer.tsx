@@ -10,8 +10,13 @@ interface SPSimulatorDrawerProps {
   onTxHash: (hash: string) => void;
 }
 
-function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
-  const steps = ["Connect", "Configure", "Status"];
+// Auto-filled proof params — SP doesn't need to know these
+const DEFAULT_PROOF_SET_ID = 1;
+const DEFAULT_ROOT_CID =
+  "0xdeadbeef00000000000000000000000000000000000000000000000000000000";
+
+function StepIndicator({ step }: { step: 1 | 2 }) {
+  const steps = ["Connect", "Status"];
   return (
     <div className="sla-wiz-steps">
       {steps.map((label, i) => {
@@ -28,7 +33,7 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
             <div
               className={`sla-wiz-step-dot ${isActive ? "sla-wiz-step-dot-active" : ""} ${isComplete ? "sla-wiz-step-dot-done" : ""}`}
             >
-              {isComplete ? "✓" : n}
+              {isComplete ? "\u2713" : n}
             </div>
             <span
               className={`sla-wiz-step-label ${isActive || isComplete ? "sla-wiz-step-label-active" : ""}`}
@@ -52,17 +57,19 @@ export default function SPSimulatorDrawer({
   onClose,
   onTxHash,
 }: SPSimulatorDrawerProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [proofSetId, setProofSetId] = useState("1");
-  const [rootCIDs, setRootCIDs] = useState(
-    "0xdeadbeef00000000000000000000000000000000000000000000000000000000",
-  );
+  const [step, setStep] = useState<1 | 2>(1);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
 
-  const { address, isCorrectChain, connecting, error: walletError, connect, switchChain } =
-    useFilecoinWallet();
+  const {
+    address,
+    isCorrectChain,
+    connecting,
+    error: walletError,
+    connect,
+    switchChain,
+  } = useFilecoinWallet();
 
   // Reset when drawer closes
   useEffect(() => {
@@ -77,31 +84,13 @@ export default function SPSimulatorDrawer({
     }
   }, [isOpen]);
 
-  async function handleSubmit() {
+  async function handleProve() {
     setTxError(null);
-
-    const parsedId = parseInt(proofSetId, 10);
-    if (isNaN(parsedId) || parsedId < 0) {
-      setTxError("Proof Set ID must be a non-negative integer");
-      return;
-    }
-
-    const cids = rootCIDs.split("\n").map((s) => s.trim()).filter(Boolean);
-    const invalidCid = cids.find((c) => !/^0x[0-9a-fA-F]{1,64}$/.test(c));
-    if (invalidCid) {
-      setTxError(`Invalid CID: "${invalidCid.slice(0, 20)}…" — must be 0x + up to 64 hex chars`);
-      return;
-    }
-    if (cids.length === 0) {
-      setTxError("Enter at least one root CID");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const hash = await callAddRoots(parsedId, cids);
+      const hash = await callAddRoots(DEFAULT_PROOF_SET_ID, [DEFAULT_ROOT_CID]);
       setTxHash(hash);
-      setStep(3);
+      setStep(2);
       onTxHash(hash);
     } catch (err) {
       setTxError(err instanceof Error ? err.message : "Transaction failed");
@@ -140,9 +129,12 @@ export default function SPSimulatorDrawer({
           <div>
             <h2
               className="font-bold"
-              style={{ fontSize: "1.125rem", color: "var(--sla-text-primary)" }}
+              style={{
+                fontSize: "1.125rem",
+                color: "var(--sla-text-primary)",
+              }}
             >
-              Submit SP Proof
+              Prove Storage
             </h2>
             <p
               style={{
@@ -151,7 +143,7 @@ export default function SPSimulatorDrawer({
                 marginTop: "0.2rem",
               }}
             >
-              Trigger Filecoin PDP → Relay → Starknet pipeline
+              Submit a storage proof to release payment
             </p>
           </div>
           <button
@@ -182,7 +174,7 @@ export default function SPSimulatorDrawer({
             className="sla-wiz-track"
             style={{ transform: `translateX(-${(step - 1) * 100}%)` }}
           >
-            {/* Panel 1: Connect */}
+            {/* Panel 1: Connect + Prove */}
             <div className="sla-wiz-panel">
               <div className="flex flex-col gap-4">
                 {/* Chain badge */}
@@ -214,9 +206,9 @@ export default function SPSimulatorDrawer({
                     }}
                   />
                   {isCorrectChain
-                    ? "Filecoin Calibration (314159)"
+                    ? "Filecoin Calibration"
                     : address
-                      ? "Wrong network — switch required"
+                      ? "Wrong network"
                       : "Not connected"}
                 </div>
 
@@ -238,8 +230,24 @@ export default function SPSimulatorDrawer({
                 )}
 
                 {walletError && (
-                  <div style={{ fontSize: "0.75rem", color: "var(--sla-danger)" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--sla-danger)",
+                    }}
+                  >
                     {walletError}
+                  </div>
+                )}
+
+                {txError && (
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "var(--sla-danger)",
+                    }}
+                  >
+                    {txError}
                   </div>
                 )}
 
@@ -249,18 +257,22 @@ export default function SPSimulatorDrawer({
                     onClick={connect}
                     disabled={connecting}
                   >
-                    {connecting ? "Connecting…" : "Connect MetaMask"}
+                    {connecting ? "Connecting..." : "Connect Wallet"}
                   </button>
                 ) : !isCorrectChain ? (
-                  <button className="sla-btn-primary w-full justify-center" onClick={switchChain}>
+                  <button
+                    className="sla-btn-primary w-full justify-center"
+                    onClick={switchChain}
+                  >
                     Switch to Filecoin Calibration
                   </button>
                 ) : (
                   <button
                     className="sla-btn-primary w-full justify-center"
-                    onClick={() => setStep(2)}
+                    onClick={handleProve}
+                    disabled={submitting}
                   >
-                    Next: Configure Proof
+                    {submitting ? "Submitting proof..." : "Prove Storage"}
                   </button>
                 )}
 
@@ -271,69 +283,14 @@ export default function SPSimulatorDrawer({
                     lineHeight: 1.6,
                   }}
                 >
-                  This calls <code style={{ fontFamily: "monospace" }}>addRoots()</code> on the
-                  MockPDPVerifier contract on Filecoin Calibration. The relay will detect the
-                  RootsAdded event and trigger chunk release on Starknet.
+                  Submits a cryptographic storage proof on Filecoin. Once
+                  verified, the relay automatically releases your payment on
+                  Starknet.
                 </div>
               </div>
             </div>
 
-            {/* Panel 2: Configure */}
-            <div className="sla-wiz-panel">
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="sla-input-label">Proof Set ID</label>
-                  <input
-                    type="number"
-                    className="sla-input"
-                    placeholder="1"
-                    min="0"
-                    value={proofSetId}
-                    onChange={(e) => setProofSetId(e.target.value)}
-                  />
-                  <p className="sla-wiz-helper">
-                    The proofSetId registered with the PDPVerifier contract
-                  </p>
-                </div>
-
-                <div>
-                  <label className="sla-input-label">Root CIDs (one per line)</label>
-                  <textarea
-                    className="sla-sp-roots-textarea"
-                    rows={4}
-                    value={rootCIDs}
-                    onChange={(e) => setRootCIDs(e.target.value)}
-                    placeholder="0xdeadbeef..."
-                    spellCheck={false}
-                  />
-                  <p className="sla-wiz-helper">
-                    bytes32 values — padded to 64 hex chars (without 0x) automatically
-                  </p>
-                </div>
-
-                {txError && (
-                  <div style={{ fontSize: "0.75rem", color: "var(--sla-danger)" }}>
-                    {txError}
-                  </div>
-                )}
-
-                <div className="sla-wiz-actions">
-                  <button className="sla-wiz-back" onClick={() => setStep(1)}>
-                    Back
-                  </button>
-                  <button
-                    className="sla-btn-primary"
-                    style={{ flex: 2 }}
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                  >
-                    {submitting ? "Submitting…" : "Submit addRoots()"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Panel 3: Status */}
+            {/* Panel 2: Status */}
             <div className="sla-wiz-panel">
               <div className="flex flex-col gap-4">
                 {txHash && (
@@ -349,7 +306,14 @@ export default function SPSimulatorDrawer({
                         border: "1px solid rgba(16,185,129,0.25)",
                       }}
                     >
-                      <span style={{ color: "var(--sla-accent)", fontSize: "1.1rem" }}>✓</span>
+                      <span
+                        style={{
+                          color: "var(--sla-accent)",
+                          fontSize: "1.1rem",
+                        }}
+                      >
+                        {"\u2713"}
+                      </span>
                       <span
                         style={{
                           fontSize: "0.8rem",
@@ -357,7 +321,7 @@ export default function SPSimulatorDrawer({
                           color: "var(--sla-accent)",
                         }}
                       >
-                        Transaction confirmed
+                        Proof submitted
                       </span>
                     </div>
 
@@ -371,7 +335,7 @@ export default function SPSimulatorDrawer({
                           letterSpacing: "0.06em",
                         }}
                       >
-                        TX Hash
+                        Filecoin TX
                       </div>
                       <a
                         className="sla-sp-tx-link"
@@ -379,7 +343,7 @@ export default function SPSimulatorDrawer({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        {txHash.slice(0, 18)}…{txHash.slice(-6)}
+                        {txHash.slice(0, 18)}...{txHash.slice(-6)}
                         <svg
                           width="10"
                           height="10"
@@ -407,18 +371,21 @@ export default function SPSimulatorDrawer({
                           color: "var(--sla-text-primary)",
                         }}
                       >
-                        Relay watching…
+                        Verifying proof and releasing payment...
                       </div>
                       <div style={{ fontSize: "0.72rem", lineHeight: 1.6 }}>
-                        The relay polls Filecoin every ~30s for RootsAdded events. It will
-                        sign and broadcast <code style={{ fontFamily: "monospace" }}>release_chunk</code> on
-                        Starknet within one poll interval.
+                        The relay verifies your proof on Filecoin and
+                        automatically releases the next chunk payment on
+                        Starknet. This typically takes 15-30 seconds.
                       </div>
                     </div>
                   </>
                 )}
 
-                <button className="sla-btn-primary w-full justify-center" onClick={onClose}>
+                <button
+                  className="sla-btn-primary w-full justify-center"
+                  onClick={onClose}
+                >
                   Close
                 </button>
               </div>

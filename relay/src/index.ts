@@ -6,8 +6,11 @@ import { LocalSigner } from "./local-signer";
 import { StarknetRelay } from "./starknet-relay";
 import type { TrackedDeal, ProofEvent, LitActionParams, ProcessedChunkKey } from "./types";
 
+// Default proofSetId for the MockPDPVerifier (all deals share this)
+const DEFAULT_PROOF_SET_ID = 1n;
+
 // ---------------------------------------------------------------------------
-// Parse TRACKED_DEALS_CONFIG env var
+// Parse TRACKED_DEALS_CONFIG env var (optional seed deals)
 // Format: "proofSetId:dealId:nextChunkIndex,..." e.g. "42:1:0,43:2:0"
 // ---------------------------------------------------------------------------
 function parseTrackedDeals(configStr: string): TrackedDeal[] {
@@ -35,26 +38,47 @@ async function main(): Promise<void> {
 
   validateConfig();
 
-  const trackedDeals = parseTrackedDeals(TRACKED_DEALS_CONFIG);
-  console.log(`[relay] Tracking ${trackedDeals.length} deals:`, trackedDeals);
+  // Seed deals from env (optional — relay will auto-discover new ones)
+  const seedDeals = parseTrackedDeals(TRACKED_DEALS_CONFIG);
 
-  const dealMap = new Map<bigint, TrackedDeal>(
-    trackedDeals.map((d) => [d.proofSetId, d])
-  );
+  // dealId -> TrackedDeal (keyed by dealId, not proofSetId)
+  const dealMap = new Map<bigint, TrackedDeal>();
+  for (const d of seedDeals) {
+    dealMap.set(d.dealId, d);
+  }
+  console.log(`[relay] Seeded ${dealMap.size} deals from env`);
 
   const processedChunks = new Set<ProcessedChunkKey>();
 
-  const fevmMonitor = new FevmMonitor(trackedDeals);
+  // All deals share proofSetId=1 (MockPDPVerifier)
+  const fevmMonitor = new FevmMonitor([{ proofSetId: DEFAULT_PROOF_SET_ID, dealId: 0n, nextChunkIndex: 0n }]);
   const litBridge = new LocalSigner(LIT_ETH_PRIVATE_KEY);
   const starknetRelay = new StarknetRelay();
 
   await fevmMonitor.initialize();
   await litBridge.connect();
+  await starknetRelay.initializeBlockCursor();
 
+  console.log(`[relay] Auto-discovery enabled — watching Starknet for DealCreated events`);
   console.log(`[relay] Starting poll loop (interval: ${FEVM_POLL_INTERVAL_MS}ms)`);
 
   while (true) {
     try {
+      // 1. Check for new deals on Starknet
+      const newDeals = await starknetRelay.pollForNewDeals();
+      for (const nd of newDeals) {
+        if (!dealMap.has(nd.dealId)) {
+          const tracked: TrackedDeal = {
+            proofSetId: DEFAULT_PROOF_SET_ID,
+            dealId: nd.dealId,
+            nextChunkIndex: 0n,
+          };
+          dealMap.set(nd.dealId, tracked);
+          console.log(`[relay] Auto-tracking new deal #${nd.dealId} (${nd.numChunks} chunks)`);
+        }
+      }
+
+      // 2. Check for proofs on Filecoin
       await pollCycle(fevmMonitor, litBridge, starknetRelay, dealMap, processedChunks);
     } catch (err) {
       console.error("[relay] Poll cycle error (will retry next interval):", err);
@@ -74,21 +98,38 @@ async function pollCycle(
   const events = await fevmMonitor.pollForProofEvents();
 
   for (const event of events) {
-    const trackedDeal = dealMap.get(event.proofSetId);
-    if (!trackedDeal) {
-      console.warn("[relay] Event for untracked proofSetId:", event.proofSetId);
+    // Find the next deal that needs chunks released
+    // (all deals share the same proofSetId with MockPDPVerifier)
+    const nextDeal = findNextDealNeedingChunks(dealMap, processedChunks);
+    if (!nextDeal) {
+      console.log("[relay] No deals need chunks — ignoring proof event");
       continue;
     }
 
     await processProofEvent(
       event,
-      trackedDeal,
+      nextDeal,
       litBridge,
       starknetRelay,
       dealMap,
       processedChunks
     );
   }
+}
+
+function findNextDealNeedingChunks(
+  dealMap: Map<bigint, TrackedDeal>,
+  processedChunks: Set<ProcessedChunkKey>
+): TrackedDeal | null {
+  // Return the deal with the lowest ID that still needs chunks
+  const candidates = Array.from(dealMap.values())
+    .filter((d) => {
+      const key: ProcessedChunkKey = `${d.dealId}-${d.nextChunkIndex}`;
+      return !processedChunks.has(key);
+    })
+    .sort((a, b) => Number(a.dealId - b.dealId));
+
+  return candidates[0] ?? null;
 }
 
 async function processProofEvent(
@@ -162,7 +203,7 @@ async function processProofEvent(
 
   processedChunks.add(chunkKey);
   trackedDeal.nextChunkIndex = chunkIndex + 1n;
-  dealMap.set(event.proofSetId, trackedDeal);
+  dealMap.set(trackedDeal.dealId, trackedDeal);
 
   console.log(
     `[relay] Chunk ${chunkKey} processed successfully. Next expected: ${trackedDeal.nextChunkIndex}`
