@@ -15,13 +15,17 @@ export function useDeal(dealId: number | null): UseDealReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Clear stale data immediately when dealId changes
+  useEffect(() => {
+    setDeal(null);
+    setLoading(dealId !== null);
+    setError(null);
+  }, [dealId]);
+
   const fetchDeal = useCallback(async () => {
-    if (dealId === null) {
-      setDeal(null);
-      setLoading(false);
-      return;
-    }
+    if (dealId === null) return;
     try {
+      setLoading(true);
       const result = await getDeal(dealId);
       setDeal(result);
       setError(null);
@@ -33,8 +37,8 @@ export function useDeal(dealId: number | null): UseDealReturn {
   }, [dealId]);
 
   useEffect(() => {
-    fetchDeal();
     if (dealId === null) return;
+    fetchDeal();
     const interval = setInterval(fetchDeal, 15_000);
     return () => clearInterval(interval);
   }, [fetchDeal, dealId]);

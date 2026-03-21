@@ -594,7 +594,8 @@ export default function Dashboard() {
     });
   }
 
-  const showEmptyState = (isConnected && filteredDeals.length === 0 && !dealsLoading) || (!dealsLoading && selectedDealId === null && filteredDeals.length === 0);
+  const showConnectWallet = !isConnected;
+  const showEmptyState = isConnected && filteredDeals.length === 0 && !dealsLoading;
 
   function handleSelectDeal(id: number) {
     setSelectedDealId(id);
@@ -648,8 +649,8 @@ export default function Dashboard() {
       />
 
       <Sidebar
-        deals={filteredDeals}
-        dealsLoading={dealsLoading}
+        deals={isConnected ? filteredDeals : []}
+        dealsLoading={isConnected ? dealsLoading : false}
         selectedDealId={selectedDealId}
         onSelectDeal={handleSelectDeal}
         walletConnected={isConnected}
@@ -669,7 +670,21 @@ export default function Dashboard() {
       </div>
 
       <main id="main-content" className="sla-f3-main">
-        {showEmptyState ? (
+        {showConnectWallet ? (
+          <div className="sla-f3-empty-state">
+            <div className="sla-f3-empty-float">
+              <svg className="sla-f3-empty-icon" viewBox="0 0 80 80" fill="none">
+                <rect x="8" y="16" width="64" height="48" rx="8" stroke="var(--sla-text-muted)" strokeWidth="2" strokeDasharray="4 3" />
+                <circle cx="40" cy="40" r="12" stroke="var(--sla-accent)" strokeWidth="2" opacity="0.5" />
+                <path d="M36 40h8M40 36v8" stroke="var(--sla-accent)" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="sla-f3-empty-title">Connect your wallet</div>
+            <div className="sla-f3-empty-desc">
+              Connect a Starknet wallet to view your deals and start streaming payments.
+            </div>
+          </div>
+        ) : showEmptyState ? (
           <NoPerspectiveDeals perspective={perspective} onCreateClick={() => setDrawerOpen(true)} />
         ) : loading && !deal ? (
           <LoadingSkeleton />
