@@ -567,7 +567,7 @@ export default function Dashboard() {
     ? deals.filter(d => perspective === "client"
         ? normalizeAddress(d.client) === normalizeAddress(account.address)
         : normalizeAddress(d.sp) === normalizeAddress(account.address))
-    : deals;
+    : [];
 
   // Auto-select first active deal (or first deal) when deals load or perspective changes
   useEffect(() => {
