@@ -39,7 +39,7 @@ export function useProofEvents(dealId: number | null): {
     }
 
     fetchEvents();
-    intervalRef.current = setInterval(fetchEvents, 30_000);
+    intervalRef.current = setInterval(fetchEvents, 15_000);
 
     return () => {
       cancelled = true;

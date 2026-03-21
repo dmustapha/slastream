@@ -49,7 +49,7 @@ export function useDeals(): UseDealsReturn {
 
   useEffect(() => {
     fetchDeals();
-    const interval = setInterval(fetchDeals, 30_000);
+    const interval = setInterval(fetchDeals, 15_000);
     return () => clearInterval(interval);
   }, [fetchDeals]);
 

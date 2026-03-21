@@ -92,7 +92,7 @@ function Sidebar({
 }: {
   deals: DealWithId[];
   dealsLoading: boolean;
-  selectedDealId: number;
+  selectedDealId: number | null;
   onSelectDeal: (id: number) => void;
   walletConnected: boolean;
   onCreateClick: () => void;
@@ -535,9 +535,7 @@ function LoadingSkeleton() {
 }
 
 export default function Dashboard() {
-  const [selectedDealId, setSelectedDealId] = useState(
-    Number(process.env.NEXT_PUBLIC_DEAL_ID || "1"),
-  );
+  const [selectedDealId, setSelectedDealId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [spSimulatorOpen, setSpSimulatorOpen] = useState(false);
@@ -571,6 +569,16 @@ export default function Dashboard() {
         : normalizeAddress(d.sp) === normalizeAddress(account.address))
     : deals;
 
+  // Auto-select first active deal (or first deal) when deals load or perspective changes
+  useEffect(() => {
+    if (filteredDeals.length === 0) return;
+    // If current selection is already in the filtered list, keep it
+    if (selectedDealId !== null && filteredDeals.some(d => d.dealId === selectedDealId)) return;
+    // Pick first active deal, fallback to first deal
+    const activeDeal = filteredDeals.find(d => d.is_active && !d.is_slashed && !isExpiredUnslashed(d));
+    setSelectedDealId(activeDeal?.dealId ?? filteredDeals[0].dealId);
+  }, [filteredDeals, selectedDealId]);
+
   if (isConnected && account && deals.length > 0 && filteredDeals.length === 0) {
     console.log("[SLAStream] Address filter mismatch:", {
       wallet: account.address,
@@ -586,7 +594,7 @@ export default function Dashboard() {
     });
   }
 
-  const showEmptyState = isConnected && filteredDeals.length === 0 && !dealsLoading;
+  const showEmptyState = (isConnected && filteredDeals.length === 0 && !dealsLoading) || (!dealsLoading && selectedDealId === null && filteredDeals.length === 0);
 
   function handleSelectDeal(id: number) {
     setSelectedDealId(id);
@@ -598,7 +606,7 @@ export default function Dashboard() {
   }
 
   async function handleSlash() {
-    if (!deal || !account) return;
+    if (!deal || !account || selectedDealId === null) return;
     console.log("[SLAStream] Slashing deal:", selectedDealId);
     await execute({
       contractAddress: SLA_ESCROW_ADDRESS,
@@ -687,7 +695,7 @@ export default function Dashboard() {
           <>
             <HeroSection
               deal={deal}
-              dealId={selectedDealId}
+              dealId={selectedDealId!}
               perspective={perspective}
               isFiltering={isConnected && filteredDeals.length > 0}
             />

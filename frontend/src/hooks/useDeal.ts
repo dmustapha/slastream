@@ -10,12 +10,17 @@ interface UseDealReturn {
   error: string | null;
 }
 
-export function useDeal(dealId: number): UseDealReturn {
+export function useDeal(dealId: number | null): UseDealReturn {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchDeal = useCallback(async () => {
+    if (dealId === null) {
+      setDeal(null);
+      setLoading(false);
+      return;
+    }
     try {
       const result = await getDeal(dealId);
       setDeal(result);
@@ -29,9 +34,10 @@ export function useDeal(dealId: number): UseDealReturn {
 
   useEffect(() => {
     fetchDeal();
+    if (dealId === null) return;
     const interval = setInterval(fetchDeal, 15_000);
     return () => clearInterval(interval);
-  }, [fetchDeal]);
+  }, [fetchDeal, dealId]);
 
   return { deal, loading, error };
 }

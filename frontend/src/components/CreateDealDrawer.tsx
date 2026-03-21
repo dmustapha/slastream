@@ -95,13 +95,16 @@ export default function CreateDealDrawer({
     }
   }, [isOpen]);
 
-  // Auto-close on confirmed
+  // Auto-close on confirmed — staggered refetch for RPC propagation delay
   useEffect(() => {
     if (state === "confirmed") {
       const timeout = setTimeout(() => {
         onSuccess();
         reset();
         onClose();
+        // RPC may not have indexed the new deal yet — retry after 3s and 8s
+        setTimeout(onSuccess, 3000);
+        setTimeout(onSuccess, 8000);
       }, 1500);
       return () => clearTimeout(timeout);
     }
