@@ -100,10 +100,22 @@ function Sidebar({
   sidebarOpen: boolean;
   perspective: "client" | "sp";
 }) {
-  const [dealFilter, setDealFilter] = useState<"active" | "history">("active");
-
   const activeDeals = deals.filter(d => d.is_active && !d.is_slashed && !isExpiredUnslashed(d));
   const historyDeals = deals.filter(d => !d.is_active || d.is_slashed || isExpiredUnslashed(d));
+
+  // Auto-switch to HISTORY when ACTIVE is empty but HISTORY has deals
+  const defaultTab = activeDeals.length === 0 && historyDeals.length > 0 ? "history" : "active";
+  const [dealFilter, setDealFilter] = useState<"active" | "history">(defaultTab);
+
+  // Re-sync tab when deal counts change (e.g. wallet connects and deals load)
+  useEffect(() => {
+    if (activeDeals.length === 0 && historyDeals.length > 0 && dealFilter === "active") {
+      setDealFilter("history");
+    } else if (activeDeals.length > 0 && historyDeals.length === 0 && dealFilter === "history") {
+      setDealFilter("active");
+    }
+  }, [activeDeals.length, historyDeals.length, dealFilter]);
+
   const visibleDeals = dealFilter === "active" ? activeDeals : historyDeals;
 
   return (
