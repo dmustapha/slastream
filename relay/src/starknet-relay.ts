@@ -195,12 +195,16 @@ export class StarknetRelay {
       return { dealMap, processedChunks };
     }
 
-    console.log(`[starknet-relay] Reconstructing state from chain (current block: ${currentBlock})...`);
+    // Look back ~50k blocks (~4 days on Starknet Sepolia) — covers any realistic demo window
+    // without scanning from genesis (which OOMs on Render free tier's 256MB limit)
+    const lookbackBlocks = 50_000;
+    const fromBlock = Math.max(0, currentBlock - lookbackBlocks);
+    console.log(`[starknet-relay] Reconstructing state from block ${fromBlock} (current: ${currentBlock})...`);
 
     // 1. Rebuild deal list from DealCreated events
     try {
       const dealEventsRaw = await paginateEvents(this.provider, {
-        from_block: { block_number: 0 },
+        from_block: { block_number: fromBlock },
         to_block: { block_number: currentBlock },
         address: SLA_ESCROW_ADDRESS,
         keys: [[DEAL_CREATED_KEY]],
@@ -227,7 +231,7 @@ export class StarknetRelay {
     // 2. Rebuild processedChunks and advance nextChunkIndex from ChunkReleased events
     try {
       const chunkEventsRaw = await paginateEvents(this.provider, {
-        from_block: { block_number: 0 },
+        from_block: { block_number: fromBlock },
         to_block: { block_number: currentBlock },
         address: SLA_ESCROW_ADDRESS,
         keys: [[CHUNK_RELEASED_KEY]],

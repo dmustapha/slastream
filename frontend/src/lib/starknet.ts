@@ -69,11 +69,14 @@ export async function getChunkReleasedEvents(
 ): Promise<ChunkReleasedEvent[]> {
   if (!SLA_ESCROW_ADDRESS) return [];
 
+  const currentBlock = await provider.getBlockNumber();
+  const fromBlock = Math.max(0, currentBlock - 50_000);
+
   const eventsResponse = await provider.getEvents({
     address: SLA_ESCROW_ADDRESS,
     keys: [[CHUNK_RELEASED_KEY]],
-    from_block: { block_number: 0 },
-    to_block: { block_number: await provider.getBlockNumber() },
+    from_block: { block_number: fromBlock },
+    to_block: { block_number: currentBlock },
     chunk_size: 100,
   });
 
