@@ -1,6 +1,6 @@
 // File: relay/src/starknet-relay.ts
 
-import { RpcProvider, Account, CallData, uint256, hash } from "starknet";
+import { RpcProvider, Account, CallData, uint256, hash, num } from "starknet";
 import {
   STARKNET_RPC_URL,
   STARKNET_RPC_URL_BACKUP,
@@ -8,7 +8,23 @@ import {
   RELAY_STARKNET_PRIVATE_KEY,
   RELAY_STARKNET_ACCOUNT_ADDRESS,
 } from "./config";
-import type { ReleaseParams, LitSig } from "./types";
+import type { ReleaseParams, LitSig, TrackedDeal, ProcessedChunkKey } from "./types";
+
+type GetEventsQuery = Parameters<RpcProvider["getEvents"]>[0];
+type EventsChunk = Awaited<ReturnType<RpcProvider["getEvents"]>>;
+
+async function paginateEvents(provider: RpcProvider, query: GetEventsQuery): Promise<EventsChunk["events"]> {
+  const all: EventsChunk["events"] = [];
+  let continuationToken: string | undefined = undefined;
+  do {
+    const resp = await provider.getEvents({ ...query, continuation_token: continuationToken });
+    all.push(...resp.events);
+    continuationToken = (resp as any).continuation_token;
+  } while (continuationToken);
+  return all;
+}
+
+const CHUNK_RELEASED_KEY = hash.getSelectorFromName("ChunkReleased");
 
 // Starknet event key for DealCreated
 const DEAL_CREATED_KEY = hash.getSelectorFromName("DealCreated");
@@ -158,6 +174,86 @@ export class StarknetRelay {
       });
 
     return txResponse.transaction_hash;
+  }
+
+  /**
+   * Reconstruct dealMap and processedChunks from on-chain history.
+   * Called once on startup so relay restarts don't re-process already-released chunks.
+   */
+  async reconstructState(defaultProofSetId: bigint): Promise<{
+    dealMap: Map<bigint, TrackedDeal>;
+    processedChunks: Set<ProcessedChunkKey>;
+  }> {
+    const dealMap = new Map<bigint, TrackedDeal>();
+    const processedChunks = new Set<ProcessedChunkKey>();
+
+    let currentBlock: number;
+    try {
+      currentBlock = await this.provider.getBlockNumber();
+    } catch (err) {
+      console.error("[starknet-relay] reconstructState: failed to get block number:", err);
+      return { dealMap, processedChunks };
+    }
+
+    console.log(`[starknet-relay] Reconstructing state from chain (current block: ${currentBlock})...`);
+
+    // 1. Rebuild deal list from DealCreated events
+    try {
+      const dealEventsRaw = await paginateEvents(this.provider, {
+        from_block: { block_number: 0 },
+        to_block: { block_number: currentBlock },
+        address: SLA_ESCROW_ADDRESS,
+        keys: [[DEAL_CREATED_KEY]],
+        chunk_size: 100,
+      });
+
+      for (const event of dealEventsRaw) {
+        if (event.keys.length >= 3 && event.data.length >= 5) {
+          const dealId = BigInt(event.keys[1]) + (BigInt(event.keys[2]) << 128n);
+          const numChunks = BigInt(event.data[4]);
+          dealMap.set(dealId, {
+            dealId,
+            proofSetId: defaultProofSetId,
+            nextChunkIndex: 0n,
+            numChunks,
+          });
+        }
+      }
+      console.log(`[starknet-relay] Reconstructed ${dealMap.size} deals from chain`);
+    } catch (err) {
+      console.error("[starknet-relay] reconstructState: failed to fetch DealCreated events:", err);
+    }
+
+    // 2. Rebuild processedChunks and advance nextChunkIndex from ChunkReleased events
+    try {
+      const chunkEventsRaw = await paginateEvents(this.provider, {
+        from_block: { block_number: 0 },
+        to_block: { block_number: currentBlock },
+        address: SLA_ESCROW_ADDRESS,
+        keys: [[CHUNK_RELEASED_KEY]],
+        chunk_size: 100,
+      });
+
+      for (const event of chunkEventsRaw) {
+        if (event.keys.length >= 3 && event.data.length >= 1) {
+          const dealId = BigInt(event.keys[1]) + (BigInt(event.keys[2]) << 128n);
+          const chunkIndex = num.toBigInt(event.data[0] ?? "0");
+          const chunkKey: ProcessedChunkKey = `${dealId}-${chunkIndex}`;
+          processedChunks.add(chunkKey);
+
+          const deal = dealMap.get(dealId);
+          if (deal && chunkIndex + 1n > deal.nextChunkIndex) {
+            deal.nextChunkIndex = chunkIndex + 1n;
+            dealMap.set(dealId, deal);
+          }
+        }
+      }
+      console.log(`[starknet-relay] Reconstructed ${processedChunks.size} processed chunks from chain`);
+    } catch (err) {
+      console.error("[starknet-relay] reconstructState: failed to fetch ChunkReleased events:", err);
+    }
+
+    return { dealMap, processedChunks };
   }
 
   async broadcastSlash(dealId: bigint): Promise<string> {

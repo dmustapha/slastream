@@ -1,10 +1,14 @@
 // File: relay/scripts/deploy-lit-action.ts
 // Migrated to Lit Protocol Naga V1 (SDK v8)
+//
+// Mints a PKP on Chronicle Yellowstone and outputs the values needed for .env.
+// The relay uses inline code execution (no IPFS needed for hackathon demo).
+// If you later upload action.js to IPFS, set LIT_ACTION_IPFS_CID in .env
+// and the relay will use ipfsId instead of inline code automatically.
 
 import { createLitClient } from "@lit-protocol/lit-client";
 import { nagaDev } from "@lit-protocol/networks";
 import { privateKeyToAccount } from "viem/accounts";
-import * as fs from "fs";
 import * as path from "path";
 import * as dotenv from "dotenv";
 
@@ -17,10 +21,6 @@ if (!LIT_DEPLOYER_PRIVATE_KEY) {
 
 async function deployLitAction(): Promise<void> {
   console.log("[deploy-lit-action] Starting (Naga V1 / SDK v8)...");
-
-  const actionPath = path.resolve(__dirname, "../lit-action/action.js");
-  const actionCode = fs.readFileSync(actionPath, "utf-8");
-  console.log(`[deploy-lit-action] Loaded action.js (${actionCode.length} bytes)`);
 
   // Create Lit client on nagaDev (free devnet)
   const litClient = await createLitClient({ network: nagaDev });
@@ -45,40 +45,24 @@ async function deployLitAction(): Promise<void> {
   console.log("  Public Key:", pkpPublicKey);
   console.log("  ETH Address:", pkpEthAddress);
 
-  // Upload action to IPFS and permit on PKP
-  // In SDK v8, we use the permissions manager to add the action
-  console.log("[deploy-lit-action] Setting up PKP permissions...");
-  const permissionsManager = (litClient as any).getPKPPermissionsManager({
-    pkpIdentifier: { tokenId: pkpTokenId },
-    account,
-  });
-
-  // Upload action code to IPFS via Lit's built-in mechanism
-  // The addPermittedAction with code will handle IPFS upload
-  const ipfsCID = await permissionsManager.addPermittedAction({
-    ipfsCid: undefined, // will be computed from code
-    code: actionCode,
-    scopes: ["sign-anything"],
-  });
-
-  console.log("[deploy-lit-action] Lit Action permitted on PKP");
-  console.log("  IPFS CID:", ipfsCID);
-
-  console.log("\n[deploy-lit-action] === ADD TO .env ===");
-  console.log(`LIT_ACTION_IPFS_CID=${ipfsCID}`);
-  console.log(`LIT_PKP_TOKEN_ID=${pkpTokenId}`);
-  console.log(`LIT_PKP_PUBLIC_KEY=${pkpPublicKey}`);
-  console.log(`LIT_PKP_ETH_ADDRESS=${pkpEthAddress}`);
-  console.log("=====================================\n");
-
+  // Extract X and Y coordinates from the uncompressed public key (0x04 + 64 bytes)
   const pubKeyNoPrefix = pkpPublicKey.startsWith("0x")
     ? pkpPublicKey.slice(2)
     : pkpPublicKey;
+  // Skip the 04 prefix (uncompressed key marker)
   const xHex = pubKeyNoPrefix.slice(2, 66);
   const yHex = pubKeyNoPrefix.slice(66, 130);
+
+  console.log("\n[deploy-lit-action] === ADD TO .env ===");
+  console.log(`LIT_PKP_TOKEN_ID=${pkpTokenId}`);
+  console.log(`LIT_PKP_PUBLIC_KEY=${pkpPublicKey}`);
+  console.log(`LIT_PKP_ETH_ADDRESS=${pkpEthAddress}`);
   console.log(`PKP_PUBLIC_KEY_X=0x${xHex}`);
   console.log(`PKP_PUBLIC_KEY_Y=0x${yHex}`);
-  console.log("(Use PKP_PUBLIC_KEY_X and PKP_PUBLIC_KEY_Y as constructor args for deploy-contract.ts)");
+  console.log("=====================================");
+  console.log("\nNote: LIT_ACTION_IPFS_CID is optional — the relay loads action.js inline by default.");
+  console.log("To use IPFS instead, upload lit-action/action.js to Pinata/IPFS and set LIT_ACTION_IPFS_CID.");
+  console.log("\n(Use PKP_PUBLIC_KEY_X and PKP_PUBLIC_KEY_Y as constructor args for deploy-contract.ts)");
 
   console.log("[deploy-lit-action] Done.");
 }

@@ -69,7 +69,7 @@ export default function CreateDealDrawer({
 }: CreateDealDrawerProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [spAddress, setSpAddress] = useState("");
-  const numChunks = "2"; // Default: 2 proof checkpoints per deal
+  const [numChunks, setNumChunks] = useState("2");
   const [chunkAmount, setChunkAmount] = useState("");
   const [collateral, setCollateral] = useState("");
   const [durationHours, setDurationHours] = useState("");
@@ -113,6 +113,11 @@ export default function CreateDealDrawer({
   function validate(): boolean {
     if (!validateHexAddress(spAddress)) {
       setValidationError("Invalid SP address (must be 0x + hex)");
+      return false;
+    }
+    const chunks = parseInt(numChunks, 10);
+    if (!chunks || chunks < 1 || chunks > 10) {
+      setValidationError("Proof checkpoints must be between 1 and 10");
       return false;
     }
     if (!parseFloat(chunkAmount) || parseFloat(chunkAmount) <= 0) {
@@ -267,6 +272,23 @@ export default function CreateDealDrawer({
                   </div>
                   <p className="sla-wiz-helper">
                     Paste the SP's Starknet address
+                  </p>
+                </div>
+
+                <div>
+                  <label className="sla-input-label">Proof checkpoints</label>
+                  <input
+                    type="number"
+                    className="sla-input"
+                    placeholder="2"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={numChunks}
+                    onChange={(e) => setNumChunks(e.target.value)}
+                  />
+                  <p className="sla-wiz-helper">
+                    Number of proofs the SP must submit (1–10)
                   </p>
                 </div>
 

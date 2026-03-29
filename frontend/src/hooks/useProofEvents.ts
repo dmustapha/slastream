@@ -17,6 +17,8 @@ export function useProofEvents(dealId: number | null): {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    setEvents([]);
+    setLoading(true);
     let cancelled = false;
 
     async function fetchEvents() {

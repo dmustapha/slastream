@@ -35,5 +35,13 @@ services:
         sync: false
       - key: PKP_PUBLIC_KEY_Y
         sync: false
+      - key: LIT_ACTION_IPFS_CID
+        sync: false
+      - key: LIT_PKP_TOKEN_ID
+        sync: false
+      - key: LIT_PKP_PUBLIC_KEY
+        sync: false
+      - key: LIT_NETWORK
+        sync: false
       - key: TRACKED_DEALS_CONFIG
         value: ""

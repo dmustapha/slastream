@@ -557,15 +557,17 @@ export default function Dashboard() {
   const { isConnected, account } = useWalletContext();
   const { deals, loading: dealsLoading, refetch } = useDeals();
   const { deal, loading, error } = useDeal(selectedDealId);
-  const { events, loading: eventsLoading, error: eventsError, lastFetchedAt } = useProofEvents(null);
+  const { events, loading: eventsLoading, error: eventsError, lastFetchedAt } = useProofEvents(selectedDealId);
   const { state: txState, txHash, error: txError, execute, reset } =
     useTransaction(account);
 
   const topbarRef = useRef<HTMLDivElement>(null);
   const prevEventCountRef = useRef(events.length);
+  const eventCountAtSubmissionRef = useRef(0);
 
   useEffect(() => {
     if (events.length > prevEventCountRef.current && topbarRef.current) {
+      prevEventCountRef.current = events.length;
       topbarRef.current.classList.add("sla-f3-topbar-flash");
       const timer = setTimeout(() => {
         topbarRef.current?.classList.remove("sla-f3-topbar-flash");
@@ -574,6 +576,19 @@ export default function Dashboard() {
     }
     prevEventCountRef.current = events.length;
   }, [events.length]);
+
+  // Auto-clear pendingFilecoinTxHash once the relay processes the proof (new event appears)
+  useEffect(() => {
+    if (pendingFilecoinTxHash && events.length > eventCountAtSubmissionRef.current) {
+      setPendingFilecoinTxHash(null);
+    }
+  }, [events.length, pendingFilecoinTxHash]);
+
+  // Clear pendingFilecoinTxHash and reset submission ref on deal switch
+  useEffect(() => {
+    setPendingFilecoinTxHash(null);
+    eventCountAtSubmissionRef.current = 0;
+  }, [selectedDealId]);
 
   const filteredDeals = isConnected && account
     ? deals.filter(d => perspective === "client"
@@ -605,6 +620,15 @@ export default function Dashboard() {
       })),
     });
   }
+
+  const chainPipelineStep = (() => {
+    if (!deal) return 0;
+    if (deal.chunks_released >= deal.num_chunks) return 4; // all done — all steps show checkmarks
+    if (deal.chunks_released > 0) return 3; // some released — Filecoin+Lit done, Starknet current
+    if (pendingFilecoinTxHash) return 0; // proof submitted, relay processing (filecoinTxHash special-cases step 0)
+    if (deal.is_active) return 1; // waiting for SP to prove on Filecoin
+    return 0;
+  })();
 
   const showConnectWallet = !isConnected;
   const showEmptyState = isConnected && filteredDeals.length === 0 && !dealsLoading;
@@ -764,7 +788,7 @@ export default function Dashboard() {
               />
 
               <ChainPipeline
-                activeStep={deal.is_active ? 2 : deal.chunks_released > 0 ? 3 : 0}
+                activeStep={chainPipelineStep}
                 filecoinTxHash={pendingFilecoinTxHash}
               />
 
@@ -796,7 +820,9 @@ export default function Dashboard() {
         isOpen={spSimulatorOpen}
         onClose={() => setSpSimulatorOpen(false)}
         onTxHash={(hash) => {
+          eventCountAtSubmissionRef.current = events.length;
           setPendingFilecoinTxHash(hash);
+          setTimeout(() => setSpSimulatorOpen(false), 1500);
         }}
       />
     </div>

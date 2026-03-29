@@ -2,9 +2,10 @@
 
 import http from "http";
 import https from "https";
-import { validateConfig, FEVM_POLL_INTERVAL_MS, TRACKED_DEALS_CONFIG, LIT_ETH_PRIVATE_KEY } from "./config";
+import { validateConfig, FEVM_POLL_INTERVAL_MS, TRACKED_DEALS_CONFIG, LIT_ETH_PRIVATE_KEY, LIT_ACTION_IPFS_CID, LIT_PKP_PUBLIC_KEY, LIT_PKP_TOKEN_ID } from "./config";
 import { FevmMonitor } from "./fevm-monitor";
 import { LocalSigner } from "./local-signer";
+import { LitBridge } from "./lit-bridge";
 import { StarknetRelay } from "./starknet-relay";
 import type { TrackedDeal, ProofEvent, LitActionParams, ProcessedChunkKey } from "./types";
 
@@ -61,26 +62,28 @@ async function main(): Promise<void> {
 
   validateConfig();
 
-  // Seed deals from env (optional — relay will auto-discover new ones)
-  const seedDeals = parseTrackedDeals(TRACKED_DEALS_CONFIG);
-
-  // dealId -> TrackedDeal (keyed by dealId, not proofSetId)
-  const dealMap = new Map<bigint, TrackedDeal>();
-  for (const d of seedDeals) {
-    dealMap.set(d.dealId, d);
-  }
-  console.log(`[relay] Seeded ${dealMap.size} deals from env`);
-
-  const processedChunks = new Set<ProcessedChunkKey>();
-
   // All deals share proofSetId=1 (MockPDPVerifier)
   const fevmMonitor = new FevmMonitor([{ proofSetId: DEFAULT_PROOF_SET_ID, dealId: 0n, nextChunkIndex: 0n, numChunks: 0n }]);
-  const litBridge = new LocalSigner(LIT_ETH_PRIVATE_KEY);
+  const litBridge = (LIT_ACTION_IPFS_CID && LIT_PKP_PUBLIC_KEY && LIT_PKP_TOKEN_ID)
+    ? new LitBridge(LIT_ETH_PRIVATE_KEY)
+    : new LocalSigner(LIT_ETH_PRIVATE_KEY);
   const starknetRelay = new StarknetRelay();
 
   await fevmMonitor.initialize();
   await litBridge.connect();
   await starknetRelay.initializeBlockCursor();
+
+  // Reconstruct dealMap and processedChunks from on-chain history (survives relay restarts)
+  const { dealMap, processedChunks } = await starknetRelay.reconstructState(DEFAULT_PROOF_SET_ID);
+
+  // Merge env seed deals (override nextChunkIndex only if chain has no record of the deal)
+  const seedDeals = parseTrackedDeals(TRACKED_DEALS_CONFIG);
+  for (const d of seedDeals) {
+    if (!dealMap.has(d.dealId)) {
+      dealMap.set(d.dealId, d);
+    }
+  }
+  console.log(`[relay] State ready: ${dealMap.size} deals, ${processedChunks.size} processed chunks`);
 
   console.log(`[relay] Auto-discovery enabled — watching Starknet for DealCreated events`);
   console.log(`[relay] Starting poll loop (interval: ${FEVM_POLL_INTERVAL_MS}ms)`);
@@ -114,7 +117,7 @@ async function main(): Promise<void> {
 
 async function pollCycle(
   fevmMonitor: FevmMonitor,
-  litBridge: LocalSigner,
+  litBridge: LocalSigner | LitBridge,
   starknetRelay: StarknetRelay,
   dealMap: Map<bigint, TrackedDeal>,
   processedChunks: Set<ProcessedChunkKey>
@@ -156,7 +159,7 @@ function findNextDealNeedingChunks(
 async function processProofEvent(
   event: ProofEvent,
   trackedDeal: TrackedDeal,
-  litBridge: LocalSigner,
+  litBridge: LocalSigner | LitBridge,
   starknetRelay: StarknetRelay,
   dealMap: Map<bigint, TrackedDeal>,
   processedChunks: Set<ProcessedChunkKey>

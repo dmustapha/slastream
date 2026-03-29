@@ -87,9 +87,13 @@
   // signAndCombineEcdsa returns the combined sig directly as a JSON string
   const sigObj = JSON.parse(signature);
 
+  function ensure0x(hex) {
+    return hex.startsWith('0x') ? hex : '0x' + hex;
+  }
+
   const response = {
-    sig_r: "0x" + sigObj.r,
-    sig_s: "0x" + sigObj.s,
+    sig_r: ensure0x(sigObj.r),
+    sig_s: ensure0x(sigObj.s),
     sig_v: sigObj.v,
   };
 
