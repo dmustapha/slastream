@@ -5,9 +5,8 @@ import https from "https";
 import { validateConfig, FEVM_POLL_INTERVAL_MS, TRACKED_DEALS_CONFIG, LIT_ETH_PRIVATE_KEY, LIT_ACTION_IPFS_CID, LIT_PKP_PUBLIC_KEY, LIT_PKP_TOKEN_ID } from "./config";
 import { FevmMonitor } from "./fevm-monitor";
 import { LocalSigner } from "./local-signer";
-import { LitBridge } from "./lit-bridge";
 import { StarknetRelay } from "./starknet-relay";
-import type { TrackedDeal, ProofEvent, LitActionParams, ProcessedChunkKey } from "./types";
+import type { TrackedDeal, ProofEvent, LitActionParams, ProcessedChunkKey, Signer } from "./types";
 
 // Default proofSetId for the MockPDPVerifier (all deals share this)
 const DEFAULT_PROOF_SET_ID = 1n;
@@ -64,9 +63,14 @@ async function main(): Promise<void> {
 
   // All deals share proofSetId=1 (MockPDPVerifier)
   const fevmMonitor = new FevmMonitor([{ proofSetId: DEFAULT_PROOF_SET_ID, dealId: 0n, nextChunkIndex: 0n, numChunks: 0n }]);
-  const litBridge = (LIT_ACTION_IPFS_CID && LIT_PKP_PUBLIC_KEY && LIT_PKP_TOKEN_ID)
-    ? new LitBridge(LIT_ETH_PRIVATE_KEY)
-    : new LocalSigner(LIT_ETH_PRIVATE_KEY);
+  let litBridge: Signer;
+  if (LIT_ACTION_IPFS_CID && LIT_PKP_PUBLIC_KEY && LIT_PKP_TOKEN_ID) {
+    // Dynamic import to avoid loading ~250MB Lit SDK when not needed
+    const { LitBridge } = await import("./lit-bridge");
+    litBridge = new LitBridge(LIT_ETH_PRIVATE_KEY);
+  } else {
+    litBridge = new LocalSigner(LIT_ETH_PRIVATE_KEY);
+  }
   const starknetRelay = new StarknetRelay();
 
   await fevmMonitor.initialize();
@@ -117,7 +121,7 @@ async function main(): Promise<void> {
 
 async function pollCycle(
   fevmMonitor: FevmMonitor,
-  litBridge: LocalSigner | LitBridge,
+  litBridge: Signer,
   starknetRelay: StarknetRelay,
   dealMap: Map<bigint, TrackedDeal>,
   processedChunks: Set<ProcessedChunkKey>
@@ -159,7 +163,7 @@ function findNextDealNeedingChunks(
 async function processProofEvent(
   event: ProofEvent,
   trackedDeal: TrackedDeal,
-  litBridge: LocalSigner | LitBridge,
+  litBridge: Signer,
   starknetRelay: StarknetRelay,
   dealMap: Map<bigint, TrackedDeal>,
   processedChunks: Set<ProcessedChunkKey>

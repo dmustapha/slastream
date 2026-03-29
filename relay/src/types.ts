@@ -54,6 +54,15 @@ export type ProcessedChunkKey = string; // format: `${dealId}-${chunkIndex}`
 /**
  * A tracked deal: maps a proofSetId to a dealId and the next expected chunk index.
  */
+/**
+ * Common interface for LocalSigner and LitBridge.
+ */
+export interface Signer {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  executeAction(params: LitActionParams): Promise<LitSig>;
+}
+
 export interface TrackedDeal {
   dealId: bigint;
   proofSetId: bigint;
