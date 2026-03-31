@@ -19,6 +19,7 @@ frontend/out/
 .vercel
 .vscode/
 .idea/
+.claude/
 **/context/
 tasks/
 **/prompts/
@@ -26,3 +27,9 @@ frontend/design-variations/
 frontend/.design-forge-state.json
 frontend/screenshots/
 .env*.local
+
+# Artifacts
+deploy-mock.html
+relay/cache/
+relay/foundry.toml
+relay/out/
