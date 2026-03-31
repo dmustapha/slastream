@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import ThemeToggle from "@/components/ThemeToggle";
 import WalletButton from "@/components/WalletButton";
 import CreateDealDrawer from "@/components/CreateDealDrawer";
@@ -123,6 +124,7 @@ function Sidebar({
       className={`sla-f3-sidebar ${sidebarOpen ? "sla-f3-sidebar-open" : ""}`}
     >
       <div className="sla-f3-sidebar-logo">
+        <Image src="/logo.png" alt="SLAStream" width={24} height={24} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 6 }} />
         <span style={{ color: "var(--sla-accent)" }}>SLA</span>Stream
       </div>
       <div className="sla-f3-divider" />

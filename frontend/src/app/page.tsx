@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import ThemeToggle from "@/components/ThemeToggle";
 import Footer from "@/components/Footer";
 import MobileNav from "@/components/MobileNav";
@@ -34,6 +35,7 @@ function Nav() {
           }}
           aria-label="SlaStream home"
         >
+          <Image src="/logo.png" alt="SLAStream" width={28} height={28} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 8 }} />
           <span style={{ color: "var(--sla-accent)" }}>SLA</span>Stream
         </Link>
 
