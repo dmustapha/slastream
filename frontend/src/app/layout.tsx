@@ -17,6 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  other: { "ory-verify": "orynth-c1b74684d74042f69b1a0c7b596b6886" },
   title: "SLAStream — Proof-Gated Streaming Payments",
   description:
     "Proof-of-Data-Possession gated streaming payments on Starknet. Filecoin PDP, Lit Protocol Oracle, Cairo Escrow.",
